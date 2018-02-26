@@ -32,16 +32,16 @@ install:
     - pip${PYVERSION} install coveralls codecov pyflakes
     - pip${PYVERSION} install --only-binary=numpy,scipy scipy
     - pip${PYVERSION} install -r requirements.txt
-    - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
-    - chmod +x ./cc-test-reporter
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter; fi
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then chmod +x ./cc-test-reporter; fi
 
 before_script:
-  - ./cc-test-reporter before-build
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./cc-test-reporter before-build; fi
 
 script:
   - make test
 
 after_success:
-  - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
-  - coveralls
-  - codecov
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then coveralls; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then codecov; fi
