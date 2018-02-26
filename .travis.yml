@@ -6,19 +6,39 @@ matrix:
         - os: linux
           dist: trusty
           sudo: required
+          python: 3.3
+          env: PYVERSION="3"
+        - os: linux
+          dist: trusty
+          sudo: required
           python: 3.5
+          env: PYVERSION="3"
+        - os: linux
+          dist: trusty
+          sudo: required
+          python: 3.6
+          env: PYVERSION="3"
+        - os: linux
+          dist: trusty
+          sudo: required
+          python: 3.7-dev
           env: PYVERSION="3"
         - os: linux
           dist: trusty
           sudo: required
           python: 2.7
           env: PYVERSION=""
+        - os: osx
+          language: generic
+
+before_install:
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update          ; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install python3; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then virtualenv venv -p python3; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then source venv/bin/activate; fi
 
 install:
-    - sudo apt-get update
-    - sudo apt-get install cython python${PYVERSION}-dev
     - pip${PYVERSION} install --upgrade pip setuptools wheel
-    - pip${PYVERSION} install cython
     - pip${PYVERSION} install coveralls codecov pyflakes
     - pip${PYVERSION} install --only-binary=numpy,scipy scipy
     - pip${PYVERSION} install -r requirements.txt
