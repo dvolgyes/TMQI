@@ -16,12 +16,12 @@ matrix:
 
 install:
     - sudo apt-get update
-    - sudo apt-get install python${PYVERSION}-dev
+    - sudo apt-get install cython python${PYVERSION}-dev
     - pip${PYVERSION} install --upgrade pip setuptools wheel
     - pip${PYVERSION} install cython
-    - pip${PYVERSION} install coveralls codecov pyflakes 
+    - pip${PYVERSION} install coveralls codecov pyflakes
     - pip${PYVERSION} install --only-binary=numpy,scipy scipy
-    - pip${PYVERSION} install pycontracts 
+    - pip${PYVERSION} install pycontracts Pillow
 
 script:
   - make
