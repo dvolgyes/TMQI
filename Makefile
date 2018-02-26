@@ -10,7 +10,7 @@ UNIX=$(NONE)
 endif
 
 ifdef APPVEYOR
-RUN=$(PYTHON)
+RUN=$(PYTHON)\\python.exe
 UNIX=echo
 COVERAGE=echo
 endif
