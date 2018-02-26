@@ -6,7 +6,7 @@ environment:
     - PYTHON: "C:\\Python35"
 
 install:
-  - "%PYTHON%\\python.exe -m pip install wheel"
+  - "%PYTHON%\\python.exe -m pip install wheel coverage coveralls"
   - "%PYTHON%\\python.exe -m pip install -r requirements.txt"
   - choco install make
 

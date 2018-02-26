@@ -2,7 +2,6 @@
 
 ifndef COVERAGE
 COVERAGE=python$(PYVERSION) -m coverage
-
 endif
 
 ifndef APPVEYOR
@@ -13,10 +12,11 @@ endif
 ifdef APPVEYOR
 RUN=$(PYTHON)
 UNIX=echo
+COVERAGE=echo
 endif
 
 test:
-	@$(COVERAGE) erase
+	$(COVERAGE) erase
 	$(RUN) TMQI.py
 	$(RUN) TMQI.py data/test.png || echo "Intentionally broken execution."
 	$(RUN) TMQI.py data/test.png data/test_ldr.png -g -t png | tee gray1.txt
