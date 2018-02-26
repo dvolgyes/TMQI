@@ -52,7 +52,7 @@ def TMQI(hdrImage, ldrImage, window=None):
 
 @contract(hdrImage='array[NxM](float)',
           ldrImage='array[NxM](float)',
-          window='None|array[UxV],U<N,V<M')
+          window='None|array[UxV],U<N,V<M,U>=2,V>=2')
 def TMQI_gray(hdrImage, ldrImage, window=None):
     a = 0.8012
     Alpha = 0.3046
@@ -62,12 +62,7 @@ def TMQI_gray(hdrImage, ldrImage, window=None):
 
     M, N = hdrImage.shape
 
-    if window is not None:
-        H, W = window.shape
-        assert H * W >= 4
-        assert H <= M
-        assert W <= N
-    else:
+    if window is None:
         gauss = gaussian(11, 1.5)
         window = np.outer(gauss, gauss)
 
