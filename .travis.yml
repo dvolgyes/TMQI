@@ -6,11 +6,6 @@ matrix:
         - os: linux
           dist: trusty
           sudo: required
-          python: 3.3
-          env: PYVERSION="3"
-        - os: linux
-          dist: trusty
-          sudo: required
           python: 3.5
           env: PYVERSION="3"
         - os: linux
