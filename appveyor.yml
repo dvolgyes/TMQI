@@ -1,0 +1,16 @@
+environment:
+  matrix:
+    - PYTHON: "C:\\Python27"
+    - PYTHON: "C:\\Python33"
+    - PYTHON: "C:\\Python34"
+    - PYTHON: "C:\\Python35"
+
+install:
+  - "%PYTHON%\\python.exe -m pip install wheel"
+  - "%PYTHON%\\python.exe -m pip install -r requirements.txt"
+  - choco install make
+
+build: off
+
+test_script:
+  - make test

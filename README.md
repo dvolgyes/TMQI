@@ -2,7 +2,10 @@ Tone Mapped Image Quality Index
 ===============================
 
 [![Build Status](https://travis-ci.org/dvolgyes/TMQI.svg?branch=master)](https://travis-ci.org/dvolgyes/TMQI)
+[![Build Status](https://semaphoreci.com/api/v1/dvolgyes/tmqi/branches/master/badge.svg)](https://semaphoreci.com/dvolgyes/tmqi)
+
 [![Coverage Status](https://coveralls.io/repos/github/dvolgyes/TMQI/badge.svg?branch=master)](https://coveralls.io/github/dvolgyes/TMQI?branch=master)
+[![codecov](https://codecov.io/gh/dvolgyes/TMQI/branch/master/graph/badge.svg)](https://codecov.io/gh/dvolgyes/TMQI)
 
 This is a Python2/3 reimplementation of the Tone Mapped Image Quality Index.
 

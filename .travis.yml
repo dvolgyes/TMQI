@@ -21,7 +21,7 @@ install:
     - pip${PYVERSION} install cython
     - pip${PYVERSION} install coveralls codecov pyflakes
     - pip${PYVERSION} install --only-binary=numpy,scipy scipy
-    - pip${PYVERSION} install pycontracts Pillow
+    - pip${PYVERSION} install -r requirements.txt
 
 script:
   - make test
