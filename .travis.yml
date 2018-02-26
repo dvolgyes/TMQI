@@ -24,15 +24,7 @@ install:
     - pip${PYVERSION} install pycontracts Pillow
 
 script:
-  - make
-  - python${PYVERSION} TMQI.py
-  - python${PYVERSION} TMQI.py test.png test_ldr.png -g -t png | tee gray1.txt
-  - python${PYVERSION} TMQI.py test.png test_ldr.png  -t png | tee color1.txt
-  - python${PYVERSION} TMQI.py test.float32 test_ldr.float32 -i float32 -W 396 -H 561 -g | tee gray2.txt
-  - python${PYVERSION} TMQI.py rgb_test.float32 rgb_test_ldr.float32 -i float32 -W 396 -H 561
-
-  - diff -q gray1.txt
-  - diff -q gray2.txt
+  - make test
 
 after_success:
   - coveralls
