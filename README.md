@@ -6,8 +6,9 @@ Travis CI: [![Build Status](https://travis-ci.org/dvolgyes/TMQI.svg?branch=maste
 Semaphore: [![Build Status](https://semaphoreci.com/api/v1/dvolgyes/tmqi/branches/master/badge.svg)](https://semaphoreci.com/dvolgyes/tmqi)
 AppVeyor: [![Build Status](https://img.shields.io/appveyor/ci/dvolgyes/TMQI.svg)](https://ci.appveyor.com/project/dvolgyes/tmqi)
 
-[![Coverage Status](https://img.shields.io/coveralls/github/dvolgyes/TMQI/master.svg)](https://coveralls.io/github/dvolgyes/TMQI?branch=master)
-[![codecov](https://codecov.io/gh/dvolgyes/TMQI/branch/master/graph/badge.svg)](https://codecov.io/gh/dvolgyes/TMQI)
+Coveralls: [![Coverage Status](https://img.shields.io/coveralls/github/dvolgyes/TMQI/master.svg)](https://coveralls.io/github/dvolgyes/TMQI?branch=master)
+Codecov: [![codecov](https://codecov.io/gh/dvolgyes/TMQI/branch/master/graph/badge.svg)](https://codecov.io/gh/dvolgyes/TMQI)
+Code climate: [![Maintainability](https://api.codeclimate.com/v1/badges/e346fb54948ce29d1ab1/maintainability)](https://codeclimate.com/github/dvolgyes/TMQI/maintainability)
 
 This is a Python2/3 reimplementation of the Tone Mapped Image Quality Index.
 

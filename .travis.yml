@@ -22,10 +22,16 @@ install:
     - pip${PYVERSION} install coveralls codecov pyflakes
     - pip${PYVERSION} install --only-binary=numpy,scipy scipy
     - pip${PYVERSION} install -r requirements.txt
+    - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+    - chmod +x ./cc-test-reporter
+
+before_script:
+  - ./cc-test-reporter before-build
 
 script:
   - make test
 
 after_success:
+  - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
   - coveralls
   - codecov

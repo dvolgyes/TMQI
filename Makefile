@@ -7,7 +7,7 @@ endif
 
 ifndef APPVEYOR
 RUN=python$(PYVERSION) -m coverage run -a --source .
-UNIX=""
+UNIX=$(NONE)
 endif
 
 ifdef APPVEYOR
