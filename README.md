@@ -16,4 +16,4 @@ The reference implementation in Matlab: https://ece.uwaterloo.ca/~z70wang/resear
 The original source code does not specify license, except that it should be referenced
 and the original paper should be cited. 
 I put this re-implementation under AGPLv3 license, hopefully this is compatible
-with the original intention.
+with the original intention. The test photos are taken by me, and I donate them to public domain.
