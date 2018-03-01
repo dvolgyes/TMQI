@@ -4,3 +4,4 @@ pycontracts
 Pillow
 imageio
 wget
+scikit-image

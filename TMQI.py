@@ -194,13 +194,12 @@ def StatisticalNaturalness(L_ldr, win=11):
     return N
 
 
-def imread(link, gray=False, shape=None, dtype=None, keep=False):
+def img_read(link, gray=False, shape=None, dtype=None, keep=False):
     if os.path.exists(link):
         if dtype is None:
-            if gray:
-                img = imageio_imread(link, "L")
-            else:
-                img = imageio_imread(link)
+            img = imread(link)
+            if gray and len(img.shape) > 2:
+                img = skimage.color.rgb2hsv(img)[..., 2]
         else:
             W, H = shape
             img = np.fromfile(link, dtype=dtype)
@@ -210,7 +209,7 @@ def imread(link, gray=False, shape=None, dtype=None, keep=False):
                 img = img.reshape(H, W, -1)
     else:
         tempfile = wget.download(link, bar=None)
-        img = imread(tempfile, gray, shape, dtype)
+        img = img_read(tempfile, gray, shape, dtype)
         if not keep:
             os.remove(tempfile)
     return img.astype(np.float)
@@ -222,11 +221,13 @@ if __name__ == "__main__":
         doctest.testmod()
 
     if len(sys.argv) > 1:  # there are command line parameters
+        # these imports are unnecessary if the code is used as a library
         from optparse import OptionParser
         from scipy.misc import imsave
-        from imageio import imread as imageio_imread
+        from imageio import imread
         import os.path
         import wget
+        import skimage.color
 
         usage = ("usage: %prog [options] HDR_image LDR_image\n" +
                  "The images could be files or a http(s)/ftp link.")
@@ -361,8 +362,8 @@ if __name__ == "__main__":
             shape = None
             dtype = None
 
-        hdr = imread(args[0], options.gray, shape, dtype, options.keep)
-        ldr = imread(args[1], options.gray, shape, dtype, options.keep)
+        hdr = img_read(args[0], options.gray, shape, dtype, options.keep)
+        ldr = img_read(args[1], options.gray, shape, dtype, options.keep)
 
         Q, S, N, s_maps, s_local = TMQI(hdr, ldr)
 
