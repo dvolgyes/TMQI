@@ -12,17 +12,17 @@ __version__ = "0.9.0"
 __title__ = "TMQIr"
 __summary__ = "TMQI revisited"
 __uri__ = "https://github.com/dvolgyes/TMQI"
-__author__ = "David Völgyes" # for the Python reimplementation, original authors in 'upstream'
+__author__ = "David Völgyes"  # for the Python reimplementation, original authors in 'upstream'
 __email__ = "david.volgyes@ieee.org"
 
 __derived__ = True
-__upstream_license__ = "BSD-like" # see the website for exact details
+__upstream_license__ = "BSD-like"  # see the website for exact details
 __upstream_uri__ = "https://ece.uwaterloo.ca/~z70wang/research/tmqi/"
 __upstream_doi__ = "10.1109/TIP.2012.2221725"
 __upstream_ref__ = ('H. Yeganeh and Z. Wang,' +
-    '"Objective Quality Assessment of Tone Mapped Images,"'+
-    'IEEE Transactions on Image Processing,'+
-    'vol. 22, no. 2, pp. 657-667, Feb. 2013.')
+                    '"Objective Quality Assessment of Tone Mapped Images,"' +
+                    'IEEE Transactions on Image Processing,' +
+                    'vol. 22, no. 2, pp. 657-667, Feb. 2013.')
 
 
 @contract(hdrImage='array[NxMx3](float)|array[NxM](float),N>10,M>10',
@@ -90,8 +90,8 @@ def TMQI_gray(hdrImage, ldrImage, window=None):
     N = StatisticalNaturalness(ldrImage)
 
     # The images should have the same dynamic ranges, e.g. [0,255]
-    L_hdr = 255. *(L_hdr - L_hdr.min())  / (L_hdr.max() - L_hdr.min())
-    L_ldr = 255. *(L_ldr - L_ldr.min())  / (L_ldr.max() - L_ldr.min())
+    L_hdr = 255. * (L_hdr - L_hdr.min()) / (L_hdr.max() - L_hdr.min())
+    L_ldr = 255. * (L_ldr - L_ldr.min()) / (L_ldr.max() - L_ldr.min())
 
     #~L_ldr = L_hdr
     S, s_local, s_maps = StructuralFidelity(L_hdr, L_ldr, lvl, weight, window)
@@ -194,7 +194,7 @@ def StatisticalNaturalness(L_ldr, win=11):
     return N
 
 
-def imread(link,gray=False,shape=None,dtype=None, keep=False):
+def imread(link, gray=False, shape=None, dtype=None, keep=False):
     if os.path.exists(link):
         if dtype is None:
             if gray:
@@ -209,11 +209,12 @@ def imread(link,gray=False,shape=None,dtype=None, keep=False):
             else:
                 img = hdr.reshape(H, W, -1).astype(np.float)
     else:
-        tempfile = wget.download(link,bar=None)
+        tempfile = wget.download(link, bar=None)
         img = imread(tempfile, gray, shape, dtype)
         if not keep:
             os.remove(tempfile)
     return img
+
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
@@ -228,7 +229,7 @@ if __name__ == "__main__":
         import wget
 
         usage = ("usage: %prog [options] HDR_image LDR_image\n" +
-            "The images could be files or a http(s)/ftp link.")
+                 "The images could be files or a http(s)/ftp link.")
         parser = OptionParser(usage=usage)
 
         parser.add_option("-t", "--type",
@@ -309,7 +310,6 @@ if __name__ == "__main__":
                           help="report maps",
                           default=False)
 
-
         parser.add_option("-q", "--no-report-Q",
                           dest="report_q",
                           action="store_false",
@@ -355,7 +355,7 @@ if __name__ == "__main__":
 
         if options.input is not None:
             W, H = options.width, options.height
-            shape = (W,H)
+            shape = (W, H)
             dtype = np.dtype(options.input)
         else:
             shape = None
@@ -374,23 +374,23 @@ if __name__ == "__main__":
 
         if options.report_q:
             if not options.quiet:
-                result+="Q: "
-            result+="%s " % Q
+                result += "Q: "
+            result += "%s " % Q
 
         if options.report_s:
             if not options.quiet:
-                result+="S: "
-            result+="%s " % S
+                result += "S: "
+            result += "%s " % S
 
         if options.report_n:
             if not options.quiet:
-                result+="N: "
-            result+="%s " % N
+                result += "N: "
+            result += "%s " % N
 
         if options.report_sl:
             if not options.quiet:
-                result+="S_locals: "
-            result+="%s " % s_local_str
+                result += "S_locals: "
+            result += "%s " % s_local_str
         print(result.strip())
 
         if options.report_maps:
