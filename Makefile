@@ -24,5 +24,6 @@ test:
 	$(RUN) TMQI.py data/test.float32 data/test_ldr.float32         -i float32 -W 396 -H 561 -g | tee gray2.txt
 	$(RUN) TMQI.py data/rgb_test.float32 data/rgb_test_ldr.float32 -i float32 -W 396 -H 561    | tee color2.txt
 	$(RUN) TMQI.py data/off.png data/off_ldr.png
+	$(RUN) TMQI.pyhttps://www.floridamemory.com/fpc/prints/pr76815.jpg
 	$(UNIX) diff -q gray1.txt  gray2.txt
 	$(UNIX) diff -q color1.txt color2.txt

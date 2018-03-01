@@ -361,8 +361,8 @@ if __name__ == "__main__":
             shape = None
             dtype = None
 
-        hdr = imread(args[0], gray=options.gray, shape=shape, dtype=dtype)
-        ldr = imread(args[1], gray=options.gray, shape=shape, dtype=dtype)
+        hdr = imread(args[0], options.gray, shape, dtype, options.keep)
+        ldr = imread(args[1], options.gray, shape, dtype, options.keep)
 
         Q, S, N, s_maps, s_local = TMQI(hdr, ldr)
 
