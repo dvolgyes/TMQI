@@ -7,6 +7,22 @@ from scipy.ndimage.filters import generic_filter
 from scipy.stats import norm, beta
 from contracts import contract
 
+__version__ = "0.9.0"
+__title__ = "TMQIr"
+__summary__ = "TMQI revisited"
+__uri__ = "https://github.com/dvolgyes/TMQI"
+__author__ = "David Völgyes" # for the Python reimplementation, original authors in 'upstream'
+__email__ = "david.volgyes@ieee.org"
+
+__derived__ = True
+__upstream_license__ = "BSD-like" # see the website for exact details
+__upstream_uri__ = "https://ece.uwaterloo.ca/~z70wang/research/tmqi/"
+__upstream_doi__ = "10.1109/TIP.2012.2221725"
+__upstream_ref__ = ('H. Yeganeh and Z. Wang,' +
+    '"Objective Quality Assessment of Tone Mapped Images,"'+
+    'IEEE Transactions on Image Processing,'+
+    'vol. 22, no. 2, pp. 657-667, Feb. 2013.')
+
 
 @contract(hdrImage='array[NxMx3](float)|array[NxM](float),N>10,M>10',
           ldrImage='array[NxMx3](float)|array[NxM](float)')
@@ -18,22 +34,21 @@ def TMQI(hdrImage, ldrImage, window=None):
     >>> Q, S, N, s_maps, s_local = TMQI(test,test)
     >>> print(S)  # Should be similar to itself
     1.0
-    >>> print(N>0.4)
+    >>> print(N>0.3)
     True
 
-    >>> test2 = np.random.normal(size=(100,100),loc=40,scale=5)
+    >>> test2 = np.random.normal(size=(100,100),loc=40,scale=2)
+    >>> test2 = test2 + np.arange(10000).reshape(100,-1)/1000.
     >>> Q, S, N, s_maps, s_local = TMQI(test2,test2)
     >>> print(S)  # Should be similar to itself
     1.0
-    >>> print(N<0.01)
+    >>> print(N<0.1)
     True
 
     >>> Q, S, N, s_maps, s_local = TMQI(test,test2)
-    >>> print(Q<0.6)
+    >>> print(0.2<Q<0.7)
     True
-    >>> print(N<0.01)
-    True
-    >>> print(S<0.3)
+    >>> print(N<0.1)
     True
     """
 
@@ -70,12 +85,15 @@ def TMQI_gray(hdrImage, ldrImage, window=None):
     L_hdr = hdrImage
     L_ldr = ldrImage
 
-    # I think this is a bug:
-    # lmin, lmax = L_hdr.min(), L_hdr.max()
-    # L_hdr = (L_hdr - lmin) * np.around((2**32 - 1.) / (lmax - lmin))
+    # Naturalness should be calculated before rescaling
+    N = StatisticalNaturalness(ldrImage)
 
+    # The images should have the same dynamic ranges, e.g. [0,255]
+    L_hdr = 255. *(L_hdr - L_hdr.min())  / (L_hdr.max() - L_hdr.min())
+    L_ldr = 255. *(L_ldr - L_ldr.min())  / (L_ldr.max() - L_ldr.min())
+
+    #~L_ldr = L_hdr
     S, s_local, s_maps = StructuralFidelity(L_hdr, L_ldr, lvl, weight, window)
-    N = StatisticalNaturalness(L_ldr)
     Q = a * (S ** Alpha) + (1 - a) * (N ** Beta)
     return Q, S, N, s_maps, s_local
 
@@ -177,13 +195,14 @@ def StatisticalNaturalness(L_ldr, win=11):
 
 if __name__ == "__main__":
     import sys
-    import doctest
-    doctest.testmod()
+    if len(sys.argv) == 1:
+        import doctest
+        doctest.testmod()
 
     if len(sys.argv) > 1:  # there are command line parameters
         from optparse import OptionParser
-        from scipy.misc import imread, imsave
-
+        from scipy.misc import imsave
+        from imageio import imread
         usage = "usage: %prog [options] HDR_image LDR_image"
         parser = OptionParser(usage=usage)
 
@@ -235,6 +254,68 @@ if __name__ == "__main__":
                           "  (default: RGB)",
                           default=False)
 
+        parser.add_option("-Q", "--report-Q",
+                          dest="report_q",
+                          action="store_true",
+                          help="report quality index",
+                          default=True)
+
+        parser.add_option("-S", "--report-S",
+                          dest="report_s",
+                          action="store_true",
+                          help="report structural similarity",
+                          default=False)
+
+        parser.add_option("-L", "--report-SL",
+                          dest="report_sl",
+                          action="store_true",
+                          help="report maps (S_locals)",
+                          default=False)
+
+        parser.add_option("-N", "--report-N",
+                          dest="report_n",
+                          action="store_true",
+                          help="report naturalness",
+                          default=False)
+
+        parser.add_option("-M", "--report-MAPS",
+                          dest="report_maps",
+                          action="store_true",
+                          help="report maps",
+                          default=False)
+
+
+        parser.add_option("-q", "--no-report-Q",
+                          dest="report_q",
+                          action="store_false",
+                          help="do not report quality index")
+
+        parser.add_option("-s", "--no-report-S",
+                          dest="report_s",
+                          action="store_false",
+                          help="do not report structural similarity")
+
+        parser.add_option("-l", "--no-report-SL",
+                          dest="report_sl",
+                          action="store_false",
+                          help="do not report maps (S_locals)")
+
+        parser.add_option("-n", "--no-report-N",
+                          dest="report_n",
+                          action="store_false",
+                          help="do not report naturalness")
+
+        parser.add_option("--quiet",
+                          dest="quiet",
+                          action="store_true",
+                          help="suppress variable names in the report")
+
+        parser.add_option("--verbose",
+                          dest="quiet",
+                          action="store_false",
+                          help="use variable names in the report (default)",
+                          default=False)
+
         (options, args) = parser.parse_args()
 
         if len(args) != 2:
@@ -266,13 +347,35 @@ if __name__ == "__main__":
         Q, S, N = np.round(Q, prec), np.round(S, prec), np.round(N, prec)
         s_local_str = " ".join(map(str, np.round(s_local, prec)))
 
-        print("Q: %s     S: %s     N: %s" % (Q, S, N))
-        print("S_locals: %s" % s_local_str)
-        for idx, sm in enumerate(s_maps):
-            filename = "%s%i.%s" % (options.smap, idx + 1, options.maptype)
+        result = ""
 
-            try:
-                out = sm.astype(options.maptype)
-                out.tofile(filename)
-            except TypeError:
-                imsave(filename, sm)
+        if options.report_q:
+            if not options.quiet:
+                result+="Q: "
+            result+="%s " % Q
+
+        if options.report_s:
+            if not options.quiet:
+                result+="S: "
+            result+="%s " % S
+
+        if options.report_n:
+            if not options.quiet:
+                result+="N: "
+            result+="%s " % N
+
+        if options.report_sl:
+            if not options.quiet:
+                result+="S_locals: "
+            result+="%s " % s_local_str
+        print(result.strip())
+
+        if options.report_maps:
+            for idx, sm in enumerate(s_maps):
+                filename = "%s%i.%s" % (options.smap, idx + 1, options.maptype)
+
+                try:
+                    out = sm.astype(options.maptype)
+                    out.tofile(filename)
+                except TypeError:
+                    imsave(filename, sm)
