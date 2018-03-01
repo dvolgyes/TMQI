@@ -198,22 +198,22 @@ def imread(link, gray=False, shape=None, dtype=None, keep=False):
     if os.path.exists(link):
         if dtype is None:
             if gray:
-                img = imageio_imread(link, "L").astype(np.float)
+                img = imageio_imread(link, "L")
             else:
-                img = imageio_imread(link).astype(np.float)
+                img = imageio_imread(link)
         else:
             W, H = shape
             img = np.fromfile(link, dtype=dtype)
             if gray:
-                img = hdr.reshape(H, W).astype(np.float)
+                img = img.reshape(H, W)
             else:
-                img = hdr.reshape(H, W, -1).astype(np.float)
+                img = img.reshape(H, W, -1)
     else:
         tempfile = wget.download(link, bar=None)
         img = imread(tempfile, gray, shape, dtype)
         if not keep:
             os.remove(tempfile)
-    return img
+    return img.astype(np.float)
 
 
 if __name__ == "__main__":
