@@ -93,7 +93,6 @@ def TMQI_gray(hdrImage, ldrImage, window=None):
     L_hdr = 255. * (L_hdr - L_hdr.min()) / (L_hdr.max() - L_hdr.min())
     L_ldr = 255. * (L_ldr - L_ldr.min()) / (L_ldr.max() - L_ldr.min())
 
-    #~L_ldr = L_hdr
     S, s_local, s_maps = StructuralFidelity(L_hdr, L_ldr, lvl, weight, window)
     Q = a * (S ** Alpha) + (1 - a) * (N ** Beta)
     return Q, S, N, s_maps, s_local
@@ -136,7 +135,7 @@ def StructuralFidelity(L_hdr, L_ldr, level, weight, window):
 
 @contract(img1='array[NxM](float),N>0,M>0',
           img2='array[NxM](float),N>0,M>0',
-          sf='float,>0')  # img2=L_ldr
+          sf='float,>0')
 def Slocal(img1, img2, window, sf, C1=0.01, C2=10.):
 
     window = window / window.sum()
