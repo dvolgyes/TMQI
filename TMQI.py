@@ -47,7 +47,7 @@ def TMQI(hdrImage, ldrImage, window=None):
     True
 
     >>> Q, S, N, s_maps, s_local = TMQI(test,test2)
-    >>> print(0.2<Q<0.7)
+    >>> print(0.1<Q<0.7)
     True
     >>> print(N<0.1)
     True
