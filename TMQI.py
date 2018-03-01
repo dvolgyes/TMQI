@@ -6,6 +6,7 @@ from scipy.signal import convolve, gaussian
 from scipy.ndimage.filters import generic_filter
 from scipy.stats import norm, beta
 from contracts import contract
+import sys
 
 __version__ = "0.9.0"
 __title__ = "TMQIr"
@@ -193,8 +194,28 @@ def StatisticalNaturalness(L_ldr, win=11):
     return N
 
 
+def imread(link,gray=False,shape=None,dtype=None, keep=False):
+    if os.path.exists(link):
+        if dtype is None:
+            if gray:
+                img = imageio_imread(link, "L").astype(np.float)
+            else:
+                img = imageio_imread(link).astype(np.float)
+        else:
+            W, H = shape
+            img = np.fromfile(link, dtype=dtype)
+            if gray:
+                img = hdr.reshape(H, W).astype(np.float)
+            else:
+                img = hdr.reshape(H, W, -1).astype(np.float)
+    else:
+        tempfile = wget.download(link,bar=None)
+        img = imread(tempfile, gray, shape, dtype)
+        if not keep:
+            os.remove(tempfile)
+    return img
+
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) == 1:
         import doctest
         doctest.testmod()
@@ -202,8 +223,12 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:  # there are command line parameters
         from optparse import OptionParser
         from scipy.misc import imsave
-        from imageio import imread
-        usage = "usage: %prog [options] HDR_image LDR_image"
+        from imageio import imread as imageio_imread
+        import os.path
+        import wget
+
+        usage = ("usage: %prog [options] HDR_image LDR_image\n" +
+            "The images could be files or a http(s)/ftp link.")
         parser = OptionParser(usage=usage)
 
         parser.add_option("-t", "--type",
@@ -316,30 +341,28 @@ if __name__ == "__main__":
                           help="use variable names in the report (default)",
                           default=False)
 
+        parser.add_option("--keep",
+                          dest="keep",
+                          action="store_true",
+                          help="keep downloaded files (default: False)",
+                          default=False)
+
         (options, args) = parser.parse_args()
 
         if len(args) != 2:
             print("Exactly two input files are needed: HDR and LDR.")
             sys.exit(0)
 
-        if options.input is None:
-            if options.gray:
-                hdr = imread(args[0], "L").astype(np.float)
-                ldr = imread(args[1], "L").astype(np.float)
-            else:
-                hdr = imread(args[0]).astype(np.float)
-                ldr = imread(args[1]).astype(np.float)
-        else:
-            dtype = np.dtype(options.input)
+        if options.input is not None:
             W, H = options.width, options.height
-            hdr = np.fromfile(args[0], dtype=dtype)
-            ldr = np.fromfile(args[1], dtype=dtype)
-            if options.gray:
-                hdr = hdr.reshape(H, W).astype(np.float)
-                ldr = ldr.reshape(H, W).astype(np.float)
-            else:
-                hdr = hdr.reshape(H, W, -1).astype(np.float)
-                ldr = ldr.reshape(H, W, -1).astype(np.float)
+            shape = (W,H)
+            dtype = np.dtype(options.input)
+        else:
+            shape = None
+            dtype = None
+
+        hdr = imread(args[0], gray=options.gray, shape=shape, dtype=dtype)
+        ldr = imread(args[1], gray=options.gray, shape=shape, dtype=dtype)
 
         Q, S, N, s_maps, s_local = TMQI(hdr, ldr)
 
