@@ -3,6 +3,7 @@ Tone Mapped Image Quality Index
 
 Travis CI: [![Build Status](https://travis-ci.org/dvolgyes/TMQI.svg?branch=master)](https://travis-ci.org/dvolgyes/TMQI)
 Semaphore: [![Build Status](https://semaphoreci.com/api/v1/dvolgyes/tmqi/branches/master/badge.svg)](https://semaphoreci.com/dvolgyes/tmqi)
+CircleCI: [![CircleCI](https://circleci.com/gh/dvolgyes/TMQI.svg?style=svg)](https://circleci.com/gh/dvolgyes/TMQI)
 AppVeyor: [![Build Status](https://img.shields.io/appveyor/ci/dvolgyes/TMQI.svg)](https://ci.appveyor.com/project/dvolgyes/tmqi)
 
 Coveralls: [![Coverage Status](https://img.shields.io/coveralls/github/dvolgyes/TMQI/master.svg)](https://coveralls.io/github/dvolgyes/TMQI?branch=master)
