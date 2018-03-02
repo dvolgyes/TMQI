@@ -6,12 +6,12 @@ environment:
     - PYTHON: "C:\\Python36"
 
 install:
-  - "%PYTHON%\\python.exe -m pip install --only-binary=numpy,scipy numpy scipy cython scikit-image"
+  - "%PYTHON%\\python.exe -m pip install --only-binary=numpy,scipy numpy scipy"
   - "%PYTHON%\\python.exe -m pip install wheel coverage coveralls"
-  - "%PYTHON%\\python.exe -m pip install -r requirements.txt"
+  - "%PYTHON%\\python.exe -m pip install -r requirements-win.txt"
   - choco install make
 
 build: off
 
 test_script:
-  - make test
+  - make wintest

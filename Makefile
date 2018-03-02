@@ -29,3 +29,13 @@ test:
 	$(RUN) TMQI.py https://www.floridamemory.com/fpc/prints/pr76815.jpg https://www.floridamemory.com/fpc/prints/pr76815.jpg
 	$(UNIX) diff -q gray1.txt  gray2.txt
 	$(UNIX) diff -q color1.txt color2.txt
+
+wintest:
+	$(RUN) TMQI.py
+	$(RUN) TMQI.py data/test.png || echo "Intentionally broken execution."
+	$(RUN) TMQI.py data/test.png data/test_ldr.png    -t png
+	$(RUN) TMQI.py data/rgb_test.float32 data/rgb_test_ldr.float32 -i float32 -W 396 -H 561
+	$(RUN) TMQI.py data/off.png data/off_ldr.png -Q -S -L -N -M --verbose
+	$(RUN) TMQI.py data/off.png data/off_ldr.png -Q -S -L -N -M --verbose -t png
+	$(RUN) TMQI.py data/off.png data/off_ldr.png -q -s -l -n -m --keep --quiet
+	$(RUN) TMQI.py https://www.floridamemory.com/fpc/prints/pr76815.jpg https://www.floridamemory.com/fpc/prints/pr76815.jpg

@@ -1,0 +1,6 @@
+numpy
+scipy
+pycontracts
+Pillow
+imageio
+wget
