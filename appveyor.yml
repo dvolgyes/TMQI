@@ -30,6 +30,7 @@ install:
     - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
     - "activate test"
     - "conda install numpy scipy scikit-image"
+    - "pip install -r requirements-win.txt"
 
 build: off
 
