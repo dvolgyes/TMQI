@@ -1,13 +1,17 @@
 environment:
   matrix:
     - PYTHON: "C:\\Python27"
+      MINICONDA: "C:\\Miniconda"
     - PYTHON: "C:\\Python34"
+      MINICONDA: "C:\\Miniconda34"
     - PYTHON: "C:\\Python35"
+      MINICONDA: "C:\\Miniconda35"
     - PYTHON: "C:\\Python36"
+      MINICONDA: "C:\\Miniconda36"
 
 install:
-  - conda install numpy scipy scikit-image
-  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%MINICONDA%;%PATH%"
+  - conda install numpy scipy scikit-image  
   - "python -m pip install -U pip"
   - "pip install wheel"
   - "pip install --only-binary=numpy,scipy,scikit-image scikit-image numpy scipy"
