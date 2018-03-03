@@ -10,6 +10,7 @@ environment:
       MINICONDA: "C:\\Miniconda36"
 
 install:
+  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
   - ps: "dir C:\\Miniconda"
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%MINICONDA%;%PATH%"
   - "%MINICONDA%\\conda.exe" install numpy scipy scikit-image
@@ -23,3 +24,6 @@ build: off
 
 test_script:
   - wintest.bat
+
+on_finish:
+ - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
