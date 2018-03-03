@@ -35,5 +35,6 @@ install:
 build: off
 
 test_script:
+  - "activate test"
   - wintest.bat
 
