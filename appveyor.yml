@@ -22,13 +22,14 @@ matrix:
 platform:
     -x64
 
+os: Visual Studio 2015 Update 2
+
 install:
     - "git clone --depth 1 git://github.com/astropy/ci-helpers.git"
     - "powershell ci-helpers/appveyor/install-miniconda.ps1"
     - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
     - "activate test"
-    - "conda install numpy scipy scikit-image"
-    - "pip install -r requirements-win.txt"
+    - "%CMD_IN_ENV% pip install -r requirements-win.txt"
 
 build: off
 
