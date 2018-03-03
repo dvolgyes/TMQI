@@ -10,13 +10,14 @@ environment:
       MINICONDA: "C:\\Miniconda36"
 
 install:
+  - ps: "dir C:\\Miniconda"
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%MINICONDA%;%PATH%"
-  - "%MINICONDA%\\conda.exe" install numpy scipy scikit-image  
-#  - "python -m pip install -U pip"
-#  - "pip install wheel"
-#  - "pip install --only-binary=numpy,scipy,scikit-image scikit-image numpy scipy"
-#  - "pip install coverage coveralls"
-#  - "pip install -r requirements-win.txt"
+  - "%MINICONDA%\\conda.exe" install numpy scipy scikit-image
+  - "python -m pip install -U pip"
+  - "pip install wheel"
+  - "pip install --only-binary=numpy,scipy,scikit-image scikit-image numpy scipy"
+  - "pip install coverage coveralls"
+  - "pip install -r requirements-win.txt"
 
 build: off
 
