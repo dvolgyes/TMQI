@@ -9,8 +9,6 @@ environment:
         CONDA_DEPENDENCIES: "Cython scipy numpy scikit-image"
 
     matrix:
-        - PYTHON_VERSION: "2.7"
-          NUMPY_VERSION: "stable"
         - PYTHON_VERSION: "3.4"
           NUMPY_VERSION: "stable"
         - PYTHON_VERSION: "3.5"
@@ -35,6 +33,5 @@ install:
 build: off
 
 test_script:
-  - "activate test"
   - wintest.bat
 
