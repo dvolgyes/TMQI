@@ -11,7 +11,7 @@ environment:
 
 install:
   - ps: dir
-  - ps: dir %MINICONDA%
+  - ps: dir $env:MINICONDA
 
 build: off
 
