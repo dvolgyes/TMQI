@@ -1,5 +1,5 @@
-Tone Mapped Image Quality Index
-===============================
+Tone Mapped Image Quality Index - revised
+=========================================
 
 Travis CI: [![Build Status](https://travis-ci.org/dvolgyes/TMQI.svg?branch=master)](https://travis-ci.org/dvolgyes/TMQI)
 Semaphore: [![Build Status](https://semaphoreci.com/api/v1/dvolgyes/tmqi/branches/master/badge.svg)](https://semaphoreci.com/dvolgyes/tmqi)
@@ -23,3 +23,32 @@ The original source code does not specify license, except that the code should b
 and the original paper should be cited.
 I put this re-implementation under AGPLv3 license, hopefully this is compatible
 with the original intention. The test photos are taken by me, and I donate them to public domain.
+
+Deviations
+----------
+
+I disagree with some implementation choices from the original article, e.g.
+
+- zero padding during block processing
+- the rescaling of the input images dynamic range
+- (maybe something else, not yet sure)
+
+These leads to different TMQI scores, so the values from the original articles
+and from this implementation are NOT comparable. Be careful before you choose one of them.
+
+Install
+-------
+
+```
+pip install https://github.com/dvolgyes/TMQI
+```
+
+Afterwards, you can import it as a library:
+```
+from TMQI import TMQI
+```
+
+or call it as a command line program:
+```
+TMQI.py -h
+```

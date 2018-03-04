@@ -5,3 +5,4 @@ Pillow
 imageio
 wget
 scikit-image
+doctest

@@ -12,10 +12,12 @@ __version__ = "0.9.0"
 __title__ = "TMQIr"
 __summary__ = "TMQI revisited"
 __uri__ = "https://github.com/dvolgyes/TMQI"
-__author__ = "David Völgyes"  # for the Python reimplementation, original authors in 'upstream'
+
+# for the Python reimplementation, original authors in 'upstream'
+__author__ = "David Völgyes"
 __email__ = "david.volgyes@ieee.org"
 
-__derived__ = True
+__derived__ = True   # Meaning: reimplementation with deviation
 __upstream_license__ = "BSD-like"  # see the website for exact details
 __upstream_uri__ = "https://ece.uwaterloo.ca/~z70wang/research/tmqi/"
 __upstream_doi__ = "10.1109/TIP.2012.2221725"

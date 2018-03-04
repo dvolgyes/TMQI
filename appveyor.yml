@@ -31,4 +31,3 @@ build: off
 
 test_script:
   - wintest.bat
-
