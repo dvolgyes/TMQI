@@ -40,7 +40,7 @@ Install
 -------
 
 ```
-pip install https://github.com/dvolgyes/TMQI
+pip install git+https://github.com/dvolgyes/TMQI
 ```
 
 Afterwards, you can import it as a library:
