@@ -33,7 +33,7 @@ install:
     - pip${PYVERSION} install -r requirements.txt
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter; fi
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then chmod +x ./cc-test-reporter; fi
-    - pip${PYVERSION} install https://github.com/dvolgyes/TMQI
+    - pip${PYVERSION} install git+https://github.com/dvolgyes/TMQI
 
 before_script:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ./cc-test-reporter before-build; fi

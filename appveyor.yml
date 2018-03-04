@@ -25,7 +25,8 @@ install:
     - "powershell ci-helpers/appveyor/install-miniconda.ps1"
     - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
     - "activate test"
-    - "%CMD_IN_ENV% pip install -r requirements-win.txt"
+    - "%CMD_IN_ENV% pip install -r requirements.txt"
+    - "%CMD_IN_ENV% pip install git+https://github.com/dvolgyes/TMQI"
 
 build: off
 
