@@ -10,7 +10,7 @@ from contracts import contract
 from skimage.util import view_as_blocks
 import sys
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 __title__ = "TMQIr"
 __summary__ = "TMQI revised"
 __uri__ = "https://github.com/dvolgyes/TMQI"
