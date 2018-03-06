@@ -10,7 +10,7 @@ Coveralls: [![Coverage Status](https://img.shields.io/coveralls/github/dvolgyes/
 Codecov: [![codecov](https://codecov.io/gh/dvolgyes/TMQI/branch/master/graph/badge.svg)](https://codecov.io/gh/dvolgyes/TMQI)
 Code climate: [![Maintainability](https://api.codeclimate.com/v1/badges/e346fb54948ce29d1ab1/maintainability)](https://codeclimate.com/github/dvolgyes/TMQI/maintainability)
 
-This is a Python2/3 reimplementation of the Tone Mapped Image Quality Index.
+This is a Python3 reimplementation of the Tone Mapped Image Quality Index.
 
 This implementation and the Matlab original have significant differences
 and they yield different results!
