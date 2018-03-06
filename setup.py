@@ -11,7 +11,7 @@ with open('requirements.txt', 'rt') as f:
 
 setup(
     name='tmqi-revised',
-    version='0.9.0',
+    version='0.10.0',
     description=short_description,
     long_description=short_description,
     author='David Volgyes',
