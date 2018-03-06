@@ -1,16 +1,18 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+
 from __future__ import print_function, division, absolute_import
 import numpy as np
 from scipy.signal import convolve, gaussian
 from scipy.ndimage.filters import generic_filter
 from scipy.stats import norm, beta
 from contracts import contract
+from skimage.util import view_as_blocks
 import sys
 
 __version__ = "0.9.0"
 __title__ = "TMQIr"
-__summary__ = "TMQI revisited"
+__summary__ = "TMQI revised"
 __uri__ = "https://github.com/dvolgyes/TMQI"
 
 # for the Python reimplementation, original authors in 'upstream'
@@ -27,172 +29,24 @@ __upstream_ref__ = ('H. Yeganeh and Z. Wang,' +
                     'vol. 22, no. 2, pp. 657-667, Feb. 2013.')
 
 
-@contract(hdrImage='array[NxMx3](float)|array[NxM](float),N>10,M>10',
-          ldrImage='array[NxMx3](float)|array[NxM](float)')
-def TMQI(hdrImage, ldrImage, window=None):
-    """
-    Examples:
+class Metric(object):
 
-    >>> test = np.random.normal(size=(100,100),loc=116,scale=28)
-    >>> Q, S, N, s_maps, s_local = TMQI(test,test)
-    >>> print(S)  # Should be similar to itself
-    1.0
-    >>> print(N>0.3)
-    True
+    def __init__(self, *args, **kwargs):
+        self.name = "Undefined"
+        self.descriptors = list()
+        self.lists = tuple()
+        self.maps = tuple()
+        self.no_reference = False
+        self.full_reference = False
+        self.luminance = False
+        self.RGB = False
+        self.cache = dict()
 
-    >>> test2 = np.random.normal(size=(100,100),loc=40,scale=2)
-    >>> test2 = test2 + np.arange(10000).reshape(100,-1)/1000.
-    >>> Q, S, N, s_maps, s_local = TMQI(test2,test2)
-    >>> print(S)  # Should be similar to itself
-    1.0
-    >>> print(N<0.1)
-    True
-
-    >>> Q, S, N, s_maps, s_local = TMQI(test,test2)
-    >>> print(0.1<Q<0.7)
-    True
-    >>> print(N<0.1)
-    True
-    """
-
-    # images must have same dimenions
-    assert hdrImage.shape == ldrImage.shape
-
-    if len(hdrImage.shape) == 3 and len(ldrImage.shape) == 3:
-        # Processing RGB images
-        L_hdr = RGBtoY(hdrImage)
-        L_ldr = RGBtoY(ldrImage)
-        return TMQI_gray(L_hdr, L_ldr, window)
-
-    # input is already grayscale
-    return TMQI_gray(hdrImage, ldrImage, window)
-
-
-@contract(hdrImage='array[NxM](float)',
-          ldrImage='array[NxM](float)',
-          window='None|array[UxV],U<N,V<M,U>=2,V>=2')
-def TMQI_gray(hdrImage, ldrImage, window=None):
-    a = 0.8012
-    Alpha = 0.3046
-    Beta = 0.7088
-    lvl = 5  # levels
-    weight = [0.0448, 0.2856, 0.3001, 0.2363, 0.1333]
-
-    M, N = hdrImage.shape
-
-    if window is None:
-        gauss = gaussian(11, 1.5)
-        window = np.outer(gauss, gauss)
-
-    # unnecessary, it is just for the sake of parallels with the matlab code
-    L_hdr = hdrImage
-    L_ldr = ldrImage
-
-    # Naturalness should be calculated before rescaling
-    N = StatisticalNaturalness(ldrImage)
-
-    # The images should have the same dynamic ranges, e.g. [0,255]
-    L_hdr = 255. * (L_hdr - L_hdr.min()) / (L_hdr.max() - L_hdr.min())
-    L_ldr = 255. * (L_ldr - L_ldr.min()) / (L_ldr.max() - L_ldr.min())
-
-    S, s_local, s_maps = StructuralFidelity(L_hdr, L_ldr, lvl, weight, window)
-    Q = a * (S ** Alpha) + (1 - a) * (N ** Beta)
-    return Q, S, N, s_maps, s_local
-
-
-@contract(RGB='array[NxMx3](float)')
-def RGBtoY(RGB):
-    M = np.asarray([[0.2126, 0.7152, 0.0722], ])
-    Y = np.dot(RGB.reshape(-1, 3), M.T)
-    return Y.reshape(RGB.shape[0:2])
-
-
-@contract(L_hdr='array[NxM](float),N>0,M>0',
-          L_ldr='array[NxM](float),N>0,M>0')
-def StructuralFidelity(L_hdr, L_ldr, level, weight, window):
-
-    f = 32
-    s_local = []
-    s_maps = []
-    kernel = np.ones((2, 2)) / 4.0
-
-    for _ in range(level):
-        f = f / 2
-        sl, sm = Slocal(L_hdr, L_ldr, window, f)
-
-        s_local.append(sl)
-        s_maps.append(sm)
-
-        # averaging
-        filtered_im1 = convolve(L_hdr, kernel, mode='valid')
-        filtered_im2 = convolve(L_ldr, kernel, mode='valid')
-
-        # downsampling
-        L_hdr = filtered_im1[::2, ::2]
-        L_ldr = filtered_im2[::2, ::2]
-
-    S = np.prod(np.power(s_local, weight))
-    return S, s_local, s_maps
-
-
-@contract(img1='array[NxM](float),N>0,M>0',
-          img2='array[NxM](float),N>0,M>0',
-          sf='float,>0')
-def Slocal(img1, img2, window, sf, C1=0.01, C2=10.):
-
-    window = window / window.sum()
-
-    mu1 = convolve(window, img1, 'valid')
-    mu2 = convolve(window, img2, 'valid')
-
-    mu1_sq = mu1 * mu1
-    mu2_sq = mu2 * mu2
-    mu1_mu2 = mu1 * mu2
-
-    sigma1_sq = convolve(img1 * img1, window, 'valid') - mu1_sq
-    sigma2_sq = convolve(img2 * img2, window, 'valid') - mu2_sq
-
-    sigma1 = np.sqrt(np.maximum(sigma1_sq, 0))
-    sigma2 = np.sqrt(np.maximum(sigma2_sq, 0))
-
-    sigma12 = convolve(img1 * img2, window, 'valid') - mu1_mu2
-
-    CSF = 100.0 * 2.6 * (0.0192 + 0.114 * sf) * np.exp(- (0.114 * sf) ** 1.1)
-    u_hdr = 128 / (1.4 * CSF)
-    sig_hdr = u_hdr / 3.
-
-    sigma1p = norm.cdf(sigma1, loc=u_hdr, scale=sig_hdr)
-
-    u_ldr = u_hdr
-    sig_ldr = u_ldr / 3.
-
-    sigma2p = norm.cdf(sigma2, loc=u_ldr, scale=sig_ldr)
-
-    s_map = ((2 * sigma1p * sigma2p + C1) / (sigma1p**2 + sigma2p**2 + C1)
-             * ((sigma12 + C2) / (sigma1 * sigma2 + C2)))
-    s = np.mean(s_map)
-    return s, s_map
-
-
-@contract(L_ldr='array[NxM](float),N>0,M>0', win='int,>0')
-def StatisticalNaturalness(L_ldr, win=11):
-    phat1 = 4.4
-    phat2 = 10.1
-    muhat = 115.94
-    sigmahat = 27.99
-    u = np.mean(L_ldr)
-
-    # moving window standard deviation using reflected image
-    sig = np.mean(generic_filter(L_ldr, np.std, size=win))
-    beta_mode = (phat1 - 1.) / (phat1 + phat2 - 2.)
-    C_0 = beta.pdf(beta_mode, phat1, phat2)
-    C = beta.pdf(sig / 64.29, phat1, phat2)
-    pc = C / C_0
-    B = norm.pdf(u, muhat, sigmahat)
-    B_0 = norm.pdf(muhat, muhat, sigmahat)
-    pb = B / B_0
-    N = pb * pc
-    return N
+    @contract(RGB='array[NxMx3](float)')
+    def _RGBtoY(self, RGB):
+        M = np.asarray([[0.2126, 0.7152, 0.0722], ])
+        Y = np.dot(RGB.reshape(-1, 3), M.T)
+        return Y.reshape(RGB.shape[0:2])
 
 
 def img_read(link, gray=False, shape=None, dtype=None, keep=False):
@@ -214,6 +68,193 @@ def img_read(link, gray=False, shape=None, dtype=None, keep=False):
         if not keep:
             os.remove(tempfile)
     return img.astype(np.float)
+
+
+class TMQI(Metric):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.name = "TMQI"
+        self.descriptors = ("Q", "S", "N")
+        self.lists = ("s_local",)
+        self.maps = ("s_local",)
+        self.no_reference = False
+        self.full_reference = True
+        self.luminance = True
+        self.RGB = False
+        self.original = True
+
+        if len(args) + len(kwargs) > 0:
+            self.__call__(*args, **kwargs)
+
+    @contract(hdrImage='array[NxMx3](float)|array[NxM](float),N>10,M>10',
+              ldrImage='array[NxMx3](float)|array[NxM](float)')
+    def __call__(self, hdrImage, ldrImage, window=None):
+        # images must have same dimenions
+        assert hdrImage.shape == ldrImage.shape
+
+        if len(hdrImage.shape) == 3 and len(ldrImage.shape) == 3:
+            # Processing RGB images
+            L_hdr = self._RGBtoY(hdrImage)
+            L_ldr = self._RGBtoY(ldrImage)
+            return self._TMQI_gray(L_hdr, L_ldr, window)
+
+        # input is already grayscale
+        return self._TMQI_gray(hdrImage, ldrImage, window)
+
+    @contract(hdrImage='array[NxM](float)',
+              ldrImage='array[NxM](float)',
+              window='None|array[UxV],U<N,V<M,U>=2,V>=2')
+    def _TMQI_gray(self, hdrImage, ldrImage, window=None):
+        a = 0.8012
+        Alpha = 0.3046
+        Beta = 0.7088
+        lvl = 5  # levels
+        weight = [0.0448, 0.2856, 0.3001, 0.2363, 0.1333]
+
+        M, N = hdrImage.shape
+
+        if window is None:
+            gauss = gaussian(11, 1.5)
+            window = np.outer(gauss, gauss)
+
+        # unnecessary, it is just for the sake of parallels with the matlab code
+        L_hdr = hdrImage
+        L_ldr = ldrImage
+
+        # Naturalness should be calculated before rescaling
+        N = self._StatisticalNaturalness(ldrImage)
+
+        # The images should have the same dynamic ranges, e.g. [0,255]
+
+        factor = float(2**32 - 1.)
+
+        if self.original:
+            L_hdr = factor * (L_hdr - L_hdr.min()) / (L_hdr.max() - L_hdr.min())
+        else:
+            # but we really should scale them similarly...
+            L_hdr = factor * (L_hdr - L_hdr.min()) / (L_hdr.max() - L_hdr.min())
+            L_ldr = factor * (L_ldr - L_ldr.min()) / (L_ldr.max() - L_ldr.min())
+
+        S, s_local, s_maps = self._StructuralFidelity(L_hdr, L_ldr, lvl, weight, window)
+        Q = a * (S ** Alpha) + (1. - a) * (N ** Beta)
+        return Q, S, N, s_local, s_maps,
+
+    @contract(L_hdr='array[NxM](float),N>0,M>0',
+              L_ldr='array[NxM](float),N>0,M>0')
+    def _StructuralFidelity(self, L_hdr, L_ldr, level, weight, window):
+
+        f = 32
+        s_local = []
+        s_maps = []
+        kernel = np.ones((2, 2)) / 4.0
+
+        for _ in range(level):
+            f = f / 2
+            sl, sm = self._Slocal(L_hdr, L_ldr, window, f)
+
+            s_local.append(sl)
+            s_maps.append(sm)
+
+            # averaging
+            filtered_im1 = convolve(L_hdr, kernel, mode='valid')
+            filtered_im2 = convolve(L_ldr, kernel, mode='valid')
+
+            # downsampling
+            L_hdr = filtered_im1[::2, ::2]
+            L_ldr = filtered_im2[::2, ::2]
+
+        S = np.prod(np.power(s_local, weight))
+        return S, s_local, s_maps
+
+    @staticmethod
+    @contract(img1='array[NxM](float),N>0,M>0',
+              img2='array[NxM](float),N>0,M>0',
+              sf='float,>0')
+    def _Slocal(img1, img2, window, sf, C1=0.01, C2=10.):
+
+        window = window / window.sum()
+
+        mu1 = convolve(window, img1, 'valid')
+        mu2 = convolve(window, img2, 'valid')
+
+        mu1_sq = mu1 * mu1
+        mu2_sq = mu2 * mu2
+        mu1_mu2 = mu1 * mu2
+
+        sigma1_sq = convolve(img1 * img1, window, 'valid') - mu1_sq
+        sigma2_sq = convolve(img2 * img2, window, 'valid') - mu2_sq
+
+        sigma1 = np.sqrt(np.maximum(sigma1_sq, 0))
+        sigma2 = np.sqrt(np.maximum(sigma2_sq, 0))
+
+        sigma12 = convolve(img1 * img2, window, 'valid') - mu1_mu2
+
+        CSF = 100.0 * 2.6 * (0.0192 + 0.114 * sf) * np.exp(- (0.114 * sf) ** 1.1)
+        u_hdr = 128 / (1.4 * CSF)
+        sig_hdr = u_hdr / 3.
+
+        sigma1p = norm.cdf(sigma1, loc=u_hdr, scale=sig_hdr)
+
+        u_ldr = u_hdr
+        sig_ldr = u_ldr / 3.
+
+        sigma2p = norm.cdf(sigma2, loc=u_ldr, scale=sig_ldr)
+
+        s_map = ((2 * sigma1p * sigma2p + C1) / (sigma1p**2 + sigma2p**2 + C1)
+                 * ((sigma12 + C2) / (sigma1 * sigma2 + C2)))
+        s = np.mean(s_map)
+        return s, s_map
+
+    @contract(L_ldr='array[NxM](float),N>0,M>0', win='int,>0')
+    def _StatisticalNaturalness(self, L_ldr, win=11):
+        phat1 = 4.4
+        phat2 = 10.1
+        muhat = 115.94
+        sigmahat = 27.99
+        u = np.mean(L_ldr)
+
+        # moving window standard deviation using reflected image
+        if self.original:
+            W, H = L_ldr.shape
+            w_extra = (11 - W % 11)
+            h_extra = (11 - H % 11)
+            # zero padding to simulate matlab's behaviour
+            if w_extra > 0 or h_extra > 0:
+                test = np.pad(L_ldr, pad_width=((0, w_extra), (0, h_extra)), mode='constant')
+            else:
+                test = L_ldr
+            # block view with fixed block size, like in the original article
+            view = view_as_blocks(test, block_shape=(11, 11))
+            sig = np.mean(np.std(view, axis=(-1, -2)))
+        else:
+            # deviation: moving window with reflected borders
+            sig = np.mean(generic_filter(L_ldr, np.std, size=win))
+
+        beta_mode = (phat1 - 1.) / (phat1 + phat2 - 2.)
+        C_0 = beta.pdf(beta_mode, phat1, phat2)
+        C = beta.pdf(sig / 64.29, phat1, phat2)
+        pc = C / C_0
+        B = norm.pdf(u, muhat, sigmahat)
+        B_0 = norm.pdf(muhat, muhat, sigmahat)
+        pb = B / B_0
+        N = pb * pc
+        return N
+
+
+class TMQIr(TMQI):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.name = "TMQIrev"
+        self.descriptors = ("Q", "S", "N")
+        self.lists = ("s_local",)
+        self.maps = ("s_local",)
+        self.no_reference = False
+        self.full_reference = True
+        self.luminance = True
+        self.RGB = False
+        self.original = False
 
 
 if __name__ == "__main__":
@@ -349,6 +390,11 @@ if __name__ == "__main__":
                           help="keep downloaded files (default: False)",
                           default=False)
 
+        parser.add_option("--revised",
+                          dest="revised",
+                          action="store_true",
+                          help="Enable revised TMQI. (default: Original)")
+
         (options, args) = parser.parse_args()
 
         if len(args) != 2:
@@ -366,7 +412,10 @@ if __name__ == "__main__":
         hdr = img_read(args[0], options.gray, shape, dtype, options.keep)
         ldr = img_read(args[1], options.gray, shape, dtype, options.keep)
 
-        Q, S, N, s_maps, s_local = TMQI(hdr, ldr)
+        if options.revised:
+            Q, S, N, s_local, s_maps = TMQIr()(hdr, ldr)
+        else:
+            Q, S, N, s_local, s_maps = TMQI()(hdr, ldr)
 
         prec = options.precision
         Q, S, N = np.round(Q, prec), np.round(S, prec), np.round(N, prec)

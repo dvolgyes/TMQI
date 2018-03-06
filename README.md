@@ -35,6 +35,8 @@ I disagree with some implementation choices from the original article, e.g.
 
 These leads to different TMQI scores, so the values from the original articles
 and from this implementation are NOT comparable. Be careful before you choose one of them.
+You can call both the original code and my modified one, using appropriate
+function calls (TMQI vs. TMQIr) or using the --revised option in CLI.
 
 Install
 -------
