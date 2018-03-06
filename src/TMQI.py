@@ -390,7 +390,7 @@ if __name__ == "__main__":
                           help="keep downloaded files (default: False)",
                           default=False)
 
-        parser.add_option("--revised",
+        parser.add_option("-r","--revised",
                           dest="revised",
                           action="store_true",
                           help="Enable revised TMQI. (default: Original)")

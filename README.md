@@ -47,10 +47,14 @@ pip install git+https://github.com/dvolgyes/TMQI
 
 Afterwards, you can import it as a library:
 ```
-from TMQI import TMQI
+from TMQI import TMQI, TMQIr
 ```
 
 or call it as a command line program:
 ```
 TMQI.py -h
 ```
+
+Documentation
+-------------
+I don't have much time, take a look into the source code.
