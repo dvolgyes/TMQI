@@ -42,13 +42,22 @@ appropriate function calls (TMQI vs. TMQIr) or using the --revised option in CLI
   no. 10, pp. 3086-3097, 2015, doi:[10.1109/TIP.2015.2436340](https://doi.org/10.1109/TIP.2015.2436340)), revises other
   parts of the structural-fidelity formula but keeps this exact same covariance ratio — so it doesn't avoid this either.
   A warning is logged (at the default `--loglevel`) whenever it happens, explaining why.
-- **`TMQIr` (the `--revised` branch) is numerically fragile.** It rescales both the HDR and LDR images into the same
-  ~4.3e9 range before computing local covariance, pushing the computation to the edge of float64 precision and making
-  the `nan` case above dramatically more likely. Near that edge, the exact numeric output is not reproducible across
-  SciPy versions — only the qualitative behavior (e.g. whether the result is `nan`) is stable.
-- Both are properties of the published algorithm(s), not implementation bugs. See `FINDINGS.md` for the full, measured
-  root-cause writeups; if you need a more numerically robust structural-fidelity term, see TMQI-II above (not
-  implemented here, to keep scores comparable to the original TMQI).
+- **Numerical stability of the local covariance computation was improved.** Earlier versions computed `S_local`'s local
+  variance/covariance via the textbook-unstable `E[X²]-E[X]²` / `E[XY]-E[X]E[Y]` shortcut, which — especially for
+  `TMQIr`, which rescales both images into a ~4.3e9 range before this step — could subtract two ~1e18-1e19-magnitude
+  quantities and produce a spuriously negative result from pure floating-point rounding, not a real signal (confirmed
+  directly against a higher-precision reference computation; see `FINDINGS.md`). This is now computed via a genuine
+  two-pass local statistic instead: the *same* formula, evaluated in a numerically stable order, not an approximation or
+  an algorithm change. Most spurious `nan`s from this cause are now avoided; a `nan` you see now is far more likely to
+  reflect genuine anti-correlated structure (the point above). This fix costs some speed — roughly 9x slower for the
+  structural-fidelity computation, since it can no longer lean on `scipy.signal.convolve`'s FFT/BLAS-backed
+  implementation. **If you computed results with an earlier version of this package and re-run the same images now,
+  small differences are expected for any image that was affected by this instability** (well-conditioned images are
+  unaffected to within existing floating-point precision). See `FINDINGS.md` for the measured before/after numbers.
+- Both are properties of, or closely tied to, the published algorithm(s), not general implementation bugs. See
+  `FINDINGS.md` for the full, measured root-cause writeups; if you need a structural-fidelity term that's designed to
+  avoid the `nan` case entirely (a formula change, not just a numerical one), see TMQI-II above — not implemented here,
+  to keep scores comparable to the original TMQI/TMQIr.
 
 ## Install
 
@@ -110,6 +119,9 @@ files) and the CLI (now built on `click` instead of `optparse`). A few behaviors
 - The `PyContracts`-based runtime validation was replaced with plain `ValueError`/`TypeError` guard clauses (the library
   is unmaintained and does not support recent Python versions); the checks performed are the same.
 - A warning is now logged when a run produces `Q`/`S` as `nan`, explaining why. See "Known limitations" above.
+- The local structural-fidelity computation is now numerically more stable, fixing most spurious `nan`s that were
+  actually floating-point artifacts rather than genuine anti-correlation. Numeric results for previously-affected images
+  will differ slightly from earlier versions; see "Known limitations" above and `FINDINGS.md`.
 
 See `FINDINGS.md` for other things discovered along the way.
 

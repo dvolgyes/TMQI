@@ -9,6 +9,7 @@ from typing import NamedTuple, cast
 
 import numpy as np
 from loguru import logger
+from numpy.lib.stride_tricks import sliding_window_view
 from scipy.ndimage import generic_filter
 from scipy.signal import convolve
 from scipy.signal.windows import gaussian
@@ -149,19 +150,14 @@ class TMQI(Metric):
         # a negative base to a fractional exponent, which is mathematically undefined (nan).
         # This is not fixed here, by design: it's an inherent property of the published TMQI
         # formula, and "fixing" it would make scores incomparable to the original/TMQIr values.
-        if self.original:
-            cause = (
-                "A negative aggregate local covariance at this pyramid level is an unusual "
-                "but legitimate outcome of the formula."
-            )
-        else:
-            cause = (
-                "This branch (TMQIr) rescales both the HDR and LDR images into the same "
-                "~4.3e9 range before computing local covariance (E[XY] - E[X]E[Y] on "
-                "~1e18-magnitude products), which amplifies floating-point cancellation and "
-                "makes a spurious negative outlier far more likely than in the original "
-                "TMQI branch."
-            )
+        # _Slocal computes sigma1_sq/sigma2_sq/sigma12 via a numerically stable two-pass
+        # formula (see _Slocal's own comment), so unlike in earlier versions this is unlikely
+        # to be a spurious floating-point artifact -- it most likely reflects a genuinely
+        # anti-correlated local patch.
+        cause = (
+            "A negative aggregate local covariance at this pyramid level is an unusual "
+            "but legitimate outcome of the formula."
+        )
         logger.warning(
             "pyramid level {}/{}: local structural fidelity s_local={:.4g} is negative. {} "
             "Q and/or S will likely come out nan, since S = prod(s_local ** weight) is "
@@ -224,20 +220,24 @@ class TMQI(Metric):
         mu1 = convolve(window, img1, "valid")
         mu2 = convolve(window, img2, "valid")
 
-        mu1_sq = mu1 * mu1
-        mu2_sq = mu2 * mu2
-        mu1_mu2 = mu1 * mu2
+        # Local variance/covariance via a genuine two-pass computation: form each window's
+        # deviation from ITS OWN local mean before squaring/multiplying, instead of the
+        # textbook-unstable E[X^2]-E[X]^2 / E[XY]-E[X]E[Y] shortcut. That shortcut, for
+        # TMQIr's rescaled (~1e9-magnitude) images, subtracts two ~1e19-magnitude
+        # quantities and can produce spuriously negative variances/covariances
+        # (catastrophic cancellation; see FINDINGS.md). This is the same formula, computed
+        # in a numerically stable order -- not an approximation or an algorithm change.
+        win1 = sliding_window_view(img1, window.shape)
+        win2 = sliding_window_view(img2, window.shape)
+        d1 = win1 - mu1[..., None, None]
+        d2 = win2 - mu2[..., None, None]
 
-        # E[X^2] - E[X]^2: for TMQIr's rescaled (~1e9-magnitude) grayscale L_ldr this subtracts
-        # two ~1e19 quantities, losing most of float64's precision (see FINDINGS.md); results
-        # for that case are not stable across SciPy versions.
-        sigma1_sq = convolve(img1 * img1, window, "valid") - mu1_sq
-        sigma2_sq = convolve(img2 * img2, window, "valid") - mu2_sq
+        sigma1_sq = np.sum(window * d1 * d1, axis=(-1, -2))
+        sigma2_sq = np.sum(window * d2 * d2, axis=(-1, -2))
+        sigma12 = np.sum(window * d1 * d2, axis=(-1, -2))
 
         sigma1 = np.sqrt(np.maximum(sigma1_sq, 0))
         sigma2 = np.sqrt(np.maximum(sigma2_sq, 0))
-
-        sigma12 = convolve(img1 * img2, window, "valid") - mu1_mu2
 
         CSF = 100.0 * 2.6 * (0.0192 + 0.114 * sf) * np.exp(-((0.114 * sf) ** 1.1))
         u_hdr = 128 / (1.4 * CSF)

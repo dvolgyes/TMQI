@@ -32,8 +32,30 @@ negative, both correctly triggering the same downstream `nan`, but not bit-compa
 testing: `tests/test_regression.py` asserts `math.isnan(Q)`/`math.isnan(S)` for this case rather than pinning `s_local`,
 since the exact values are provably not reproducible.
 
-Consistent with the surgical-changes principle, none of this changes the `_Slocal`/`_StructuralFidelity` formula itself
-— only a diagnostic warning was added.
+**Update, 2026-09-04, later the same day — the catastrophic-cancellation part of this is now fixed.** `_Slocal`'s
+`sigma1_sq`/`sigma2_sq`/`sigma12` are now computed via a genuine two-pass local statistic: form each 11×11 window's
+deviation from *its own* local mean (using `numpy.lib.stride_tricks.sliding_window_view`) before squaring/multiplying,
+instead of the textbook-unstable `E[X²]-E[X]²` / `E[XY]-E[X]E[Y]` shortcut that was subtracting two ~10¹⁸–10¹⁹-magnitude
+quantities above. This is the *same formula*, computed in a numerically stable order — not an approximation and not an
+algorithm change (verified against a `numpy.longdouble`, i.e. higher-precision, reference computation on the exact pixel
+identified above: the naive float64 formula gave -18432, the stable reformulation gives -2×10⁻¹² — indistinguishable
+from zero — and the longdouble reference gives +451, all three now agreeing in sign; the surviving max error against the
+longdouble reference across the whole level-1 map dropped from 24363 to 1128, roughly 22×). Concretely, on
+`data/test.png` (gray), `TMQIr`'s previously-`nan` result becomes `Q≈0.7984, S≈0.9885` — a normal, finite value on every
+platform tested. `TMQI` (non-revised) gray was never `nan`, but its `Q` shifted from ≈0.2195 to ≈0.2199 for the same
+reason (less rounding noise in a case where `S` is tiny and `Q` is correspondingly sensitive to it) — see `README.md`'s
+"Known limitations" for the user-facing note that results from before this fix will differ slightly for images that were
+hitting this instability. RGB cases and `off.png` are unaffected to within existing precision (they were already
+numerically well-conditioned).
+
+This *is* a departure from the earlier "leave the formula untouched" position taken above, made deliberately at the
+user's explicit request after empirically confirming the fix works and quantifying its cost: a genuinely stable,
+vectorized local covariance is ~9× slower than the `scipy.signal.convolve`-based one (measured: 0.052s → 0.486s per call
+for the finest pyramid level), because it materializes the full window at every output pixel instead of using
+`convolve`'s FFT/BLAS-backed implementation. The `_warn_negative_s_local` warning is kept (a negative `s_local` is still
+a legitimate output of the formula, per the entry above — e.g. `off.png`'s 5 genuinely negative pixels, or the synthetic
+inverted-contrast test cases in `test_metric.py`), but its message no longer singles out `TMQIr`'s rescale as a distinct
+amplifying cause, since that mechanism is now largely mitigated for both branches.
 
 2026-09-04: The padding bug in `_StatisticalNaturalness` — `w_extra = (11 - W % 11)` without a second `% 11` — pads a
 full spurious 11-row/column block of zeros whenever a dimension is an exact multiple of 11. Both original test fixtures
@@ -92,11 +114,17 @@ catastrophic-cancellation amplification documented above (`E[X²] − E[X]²`/`E
 quantities), plus, for the non-revised `TMQI` case specifically, this particular image's unusually small `S` (~0.014)
 making `Q = a·Sᵅ + …` disproportionately sensitive to small absolute changes in `S`.
 
-Fixed by loosening `test_tmqi_gray_test_image`'s `Q`/`S` assertions to `pytest.approx(..., abs=0.005)` (verified this
-comfortably covers the observed macOS values) and by no longer pinning a specific `nan`/non-`nan` outcome in
-`test_tmqir_gray_test_image` — it now checks the warning mechanism only when `nan` actually occurs, and asserts basic
-validity otherwise. The reliable, platform-independent regression guard for the negative-`s_local`-warning mechanism
-itself is a new pair of synthetic tests, `test_metric.py::test_negative_s_local_warns_for_{original,tmqir}_branch`: a
+Fixed at the time by loosening `test_tmqi_gray_test_image`'s `Q`/`S` assertions to `pytest.approx(..., abs=0.005)`
+(verified this comfortably covers the observed macOS values) and by no longer pinning a specific `nan`/non-`nan` outcome
+in `test_tmqir_gray_test_image` — it checked the warning mechanism only when `nan` actually occurred, and asserted basic
+validity otherwise. The reliable, platform-independent regression guard for the negative-`s_local` warning mechanism
+itself is a new pair of synthetic tests, `test_metric.py::test_negative_s_local_warns_for_ {original,tmqir}_branch`: a
 deliberately, structurally inverted-contrast image pair gives `s_local` values around **-0.9999** (confirmed on Linux;
 reasoned to be robust on any platform since it's not a marginal/knife-edge case like the real photo — cross-platform
 BLAS noise is many orders of magnitude too small to flip a value that far from zero).
+
+**Superseded, same day:** the numerically stable `_Slocal` reformulation described in the entry above this one directly
+addresses the root cause here too (both the SciPy-version and the platform sensitivity stemmed from the same
+catastrophic-cancellation amplification). The gray `test.png` regression tests now pin updated golden values (`Q≈0.2199`
+for `TMQI`, `Q≈0.7984` non-`nan` for `TMQIr`); the loosened tolerances and the `nan`-fallback branch in
+`test_tmqir_gray_test_image` are kept as a safety margin, not because the flip is still expected.

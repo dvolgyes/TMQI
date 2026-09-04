@@ -19,14 +19,14 @@ def off_pair(data_dir):
 
 def test_tmqi_gray_test_image(gray_png_pair):
     # Q/S use a loose absolute tolerance rather than exact precision-4 pinning: S is tiny
-    # (~0.014) for this image, which makes Q sensitive enough to cross-platform BLAS
-    # differences (observed directly: Linux gives Q=0.21950/S=0.01423, macOS CI gives
-    # Q=0.21939/S=0.01423 for byte-identical input) that it flips the 4th decimal. See
-    # FINDINGS.md.
+    # (~0.014) for this image, which makes Q sensitive enough to residual cross-platform
+    # BLAS differences that it could flip the 4th decimal (previously observed directly on
+    # macOS CI). Values below reflect the numerically stable _Slocal reformulation (see
+    # FINDINGS.md); results from versions before that fix will differ slightly.
     hdr, ldr = gray_png_pair
     result = TMQI()(hdr, ldr)
-    assert result.Q == pytest.approx(0.2195, abs=0.005)
-    assert result.S == pytest.approx(0.0143, abs=0.005)
+    assert result.Q == pytest.approx(0.2199, abs=0.001)
+    assert result.S == pytest.approx(0.0143, abs=0.001)
     assert round(result.N, 4) == 0.0
 
 
@@ -64,14 +64,16 @@ def test_tmqir_rgb_off_image(off_pair):
 
 @pytest.mark.filterwarnings("ignore:invalid value encountered in power:RuntimeWarning")
 def test_tmqir_gray_test_image(gray_png_pair, loguru_messages):
-    # See FINDINGS.md: TMQIr's covariance formula suffers catastrophic cancellation on the
-    # rescaled grayscale input, right at a knife-edge for this specific fixture -- whether
-    # it trips into `nan` is not just SciPy-version-dependent but platform/BLAS-dependent
-    # (observed directly: identical code gives `nan` on Linux, a normal float on macOS CI,
-    # for byte-identical input). So this checks structural validity, and only checks the
-    # warning mechanism when `nan` actually occurs here; it does not pin a specific outcome.
-    # The reliable, platform-independent regression guard for the warning mechanism itself
-    # is test_metric.py::test_negative_s_local_warns_for_tmqir_branch.
+    # Before the numerically stable _Slocal reformulation (see FINDINGS.md), this fixture
+    # reliably produced `nan` on Linux via catastrophic cancellation in TMQIr's rescaled
+    # covariance computation, but not on macOS CI (a genuinely different, platform-driven
+    # outcome, not just a SciPy-version one) -- both were downstream of the same numerical
+    # artifact. After the fix it consistently produces a normal, finite result; kept as a
+    # loose approx (not exact precision-4 pinning) since this image sits close enough to the
+    # numerical edge that some residual cross-platform noise is still plausible. The `nan`
+    # branch below is a defensive fallback, not the expected path -- if it's ever taken, the
+    # fix regressed. The reliable, platform-independent regression guard for the warning
+    # mechanism itself is test_metric.py::test_negative_s_local_warns_for_tmqir_branch.
     hdr, ldr = gray_png_pair
     result = TMQIr()(hdr, ldr)
     assert len(result.s_local) == 5
@@ -82,8 +84,8 @@ def test_tmqir_gray_test_image(gray_png_pair, loguru_messages):
         assert len(loguru_messages) >= 1
         assert "TIP.2015.2436340" in loguru_messages[0]
     else:
-        assert not math.isnan(result.S)
-        assert 0 <= result.Q <= 1
+        assert result.Q == pytest.approx(0.7984, abs=0.01)
+        assert result.S == pytest.approx(0.9885, abs=0.01)
 
 
 def test_no_warning_for_well_behaved_images(rgb_png_pair, loguru_messages):
