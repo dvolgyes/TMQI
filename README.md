@@ -126,7 +126,10 @@ files) and the CLI (now built on `click` instead of `optparse`). A few behaviors
   will differ slightly from earlier versions; see "Known limitations" above and `FINDINGS.md`.
 - Windows CI (AppVeyor) is uv-based now too, mirroring GitHub Actions' `windows-latest` job: install uv, `uv sync`,
   `uv run pytest`. No project-specific requirements files, no MSBuild step (this repo has no Visual Studio project — the
-  build phase is explicitly disabled).
+  build phase is explicitly disabled). `uv sync` forces `--managed-python` (AppVeyor's ambient, non-`-x64` Python is a
+  32-bit build that `scipy`/`scikit-image` no longer ship wheels for; see `FINDINGS.md`), and `scipy`/`scikit-image`/
+  `numpy`/`pillow` are wheel-only (`[tool.uv] no-build-package`) so a missing wheel fails immediately with a clear error
+  rather than attempting a doomed source compile.
 
 See `FINDINGS.md` for other things discovered along the way.
 

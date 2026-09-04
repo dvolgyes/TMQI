@@ -128,3 +128,24 @@ addresses the root cause here too (both the SciPy-version and the platform sensi
 catastrophic-cancellation amplification). The gray `test.png` regression tests now pin updated golden values (`Q≈0.2199`
 for `TMQI`, `Q≈0.7984` non-`nan` for `TMQIr`); the loosened tolerances and the `nan`-fallback branch in
 `test_tmqir_gray_test_image` are kept as a safety margin, not because the flip is still expected.
+
+2026-09-04: AppVeyor Windows CI failed with `scipy`/`scikit-image` both attempting (and failing) a from-source build —
+`ERROR: Cython requires python3 dependency for link testing, but it could not be found` — despite `uv.lock` recording a
+`scipy-1.18.1-cp312-cp312-win_amd64.whl` entry with a valid URL and hash. Root cause, confirmed directly: AppVeyor's
+build log showed `Using CPython 3.12.10 interpreter at: C:\Python312\python.exe` — the ambient, non-`-x64`-suffixed
+`C:\PythonXXX` path, which is AppVeyor's historical convention for the **32-bit** Python build (`C:\PythonXXX-x64` is
+the 64-bit one), regardless of the `platform: x64` setting in `appveyor.yml` (that setting controls the worker VM's
+architecture, not which pre-installed Python `uv` happens to find first on `PATH`). Confirmed via PyPI's release
+metadata: `numpy==2.5.2` ships a `win32` wheel (so it installed fine), but `scipy==1.18.1` and `scikit-image==0.26.0` do
+not (only `win_amd64`/`win_arm64`), forcing uv to fall back to an sdist build with no Windows C/Fortran toolchain
+configured to support it. Reproduced locally without Windows access via
+`uv sync --locked --group dev --python-platform i686-pc-windows-msvc --dry-run` (fails, confirming the 32-bit
+hypothesis) vs the same command with `x86_64-pc-windows-msvc` (resolves cleanly to wheels).
+
+Fixed two ways: (1) `appveyor.yml`'s install step now passes `--managed-python`, forcing `uv` to download and use its
+own Python (always 64-bit on Windows; `python-build-standalone`, which `uv` uses, ships no 32-bit Windows builds) rather
+than discovering whichever ambient system Python is first on `PATH` — this is the actual fix, verified via the dry-run
+above. (2) `pyproject.toml` gained `[tool.uv] no-build-package = ["numpy", "scipy", "scikit-image", "pillow"]` as
+defense-in-depth: verified via the same 32-bit dry-run that this turns a ~20-minute doomed compile attempt into an
+immediate, clear `can't be installed because it is marked as --no-build but has no binary distribution` error, for this
+or any future platform/wheel-availability mismatch.

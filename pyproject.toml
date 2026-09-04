@@ -90,6 +90,14 @@ select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "N", "PTH", "RUF", "ARG"]
 "src/tmqi/cli.py" = ["N803", "N806"]
 "tests/**" = ["PLR2004", "N806", "SIM300"]
 
+[tool.uv]
+# These packages ship compiled (C/Fortran/Cython) extensions; building them from source
+# needs a full platform toolchain that isn't available in every CI environment (notably
+# Windows CI without MSVC/Meson configured). If no prebuilt wheel matches, fail with a
+# clear "no compatible wheel" resolution error instead of attempting a doomed source
+# build. See appveyor.yml and FINDINGS.md.
+no-build-package = ["numpy", "scipy", "scikit-image", "pillow"]
+
 [tool.uv.build-backend]
 module-name = "tmqi"
 module-root = "src"
