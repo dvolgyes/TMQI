@@ -1,0 +1,253 @@
+"""The TMQI and TMQIr metrics: pure numpy/scipy, no I/O.
+
+Identifiers such as ``Q``, ``S``, ``N``, ``L_hdr``, ``_RGBtoY`` mirror the reference
+Matlab implementation and the notation of the original paper; they are kept as-is
+rather than renamed to snake_case.
+"""
+
+from typing import NamedTuple
+
+import numpy as np
+from scipy.ndimage import generic_filter
+from scipy.signal import convolve
+from scipy.signal.windows import gaussian
+from scipy.stats import beta, norm
+from skimage.util import view_as_blocks
+
+
+class TMQIResult(NamedTuple):
+    Q: float
+    S: float
+    N: float
+    s_local: list[float]
+    s_maps: list[np.ndarray]
+
+
+def _validate_image_pair(hdr_image: np.ndarray, ldr_image: np.ndarray) -> None:
+    for name, img in (("hdrImage", hdr_image), ("ldrImage", ldr_image)):
+        if not np.issubdtype(img.dtype, np.floating):
+            raise ValueError(f"{name} must have a floating dtype, got {img.dtype}")
+        if img.ndim not in (2, 3):
+            raise ValueError(f"{name} must be 2-D (NxM) or 3-D (NxMx3), got shape {img.shape}")
+        if img.ndim == 3 and img.shape[2] != 3:
+            raise ValueError(f"{name} 3-D input must have 3 channels, got shape {img.shape}")
+    if hdr_image.shape != ldr_image.shape:
+        raise ValueError(
+            f"hdrImage and ldrImage must have the same shape: "
+            f"{hdr_image.shape} vs {ldr_image.shape}"
+        )
+    n, m = hdr_image.shape[:2]
+    if n <= 10 or m <= 10:
+        raise ValueError(f"images must be larger than 10x10, got {hdr_image.shape[:2]}")
+
+
+class Metric:
+    name: str = "Undefined"
+    descriptors: tuple[str, ...] = ()
+    lists: tuple[str, ...] = ()
+    maps: tuple[str, ...] = ()
+    no_reference: bool = False
+    full_reference: bool = False
+    luminance: bool = False
+    RGB: bool = False
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.cache: dict = {}
+
+    def _RGBtoY(self, RGB: np.ndarray) -> np.ndarray:
+        if RGB.ndim != 3 or RGB.shape[2] != 3:
+            raise ValueError(f"expected an NxMx3 RGB array, got shape {RGB.shape}")
+        weights = np.asarray([0.2126, 0.7152, 0.0722])
+        return np.einsum("...c,c->...", RGB, weights)
+
+
+class TMQI(Metric):
+    name = "TMQI"
+    descriptors = ("Q", "S", "N")
+    lists = ("s_local",)
+    maps = ("s_local",)
+    no_reference = False
+    full_reference = True
+    luminance = True
+    RGB = False
+    original = True
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+        if len(args) + len(kwargs) > 0:
+            self.__call__(*args, **kwargs)
+
+    def __call__(
+        self, hdrImage: np.ndarray, ldrImage: np.ndarray, window: np.ndarray | None = None
+    ) -> TMQIResult:
+        _validate_image_pair(hdrImage, ldrImage)
+
+        if hdrImage.ndim == 3 and ldrImage.ndim == 3:
+            # Processing RGB images
+            L_hdr = self._RGBtoY(hdrImage)
+            L_ldr = self._RGBtoY(ldrImage)
+            return self._TMQI_gray(L_hdr, L_ldr, window)
+
+        # input is already grayscale
+        return self._TMQI_gray(hdrImage, ldrImage, window)
+
+    def _TMQI_gray(
+        self, hdrImage: np.ndarray, ldrImage: np.ndarray, window: np.ndarray | None = None
+    ) -> TMQIResult:
+        a = 0.8012
+        Alpha = 0.3046
+        Beta = 0.7088
+        lvl = 5  # levels
+        weight = [0.0448, 0.2856, 0.3001, 0.2363, 0.1333]
+
+        M, N = hdrImage.shape
+
+        if window is None:
+            gauss = gaussian(11, 1.5)
+            window = np.outer(gauss, gauss)
+        else:
+            if window.ndim != 2:
+                raise ValueError(f"window must be 2-D, got shape {window.shape}")
+            U, V = window.shape
+            if not (2 <= U < N and 2 <= V < M):
+                raise ValueError(f"window shape {window.shape} must satisfy 2<=U<{N}, 2<=V<{M}")
+
+        # unnecessary, it is just for the sake of parallels with the matlab code
+        L_hdr = hdrImage
+        L_ldr = ldrImage
+
+        # Naturalness should be calculated before rescaling
+        N = self._StatisticalNaturalness(ldrImage)
+
+        # The images should have the same dynamic ranges, e.g. [0,255]
+
+        factor = float(2**32 - 1.0)
+
+        if self.original:
+            L_hdr = factor * (L_hdr - L_hdr.min()) / (L_hdr.max() - L_hdr.min())
+        else:
+            # but we really should scale them similarly...
+            L_hdr = factor * (L_hdr - L_hdr.min()) / (L_hdr.max() - L_hdr.min())
+            L_ldr = factor * (L_ldr - L_ldr.min()) / (L_ldr.max() - L_ldr.min())
+
+        S, s_local, s_maps = self._StructuralFidelity(L_hdr, L_ldr, lvl, weight, window)
+        Q = a * (S**Alpha) + (1.0 - a) * (N**Beta)
+        return TMQIResult(Q, S, N, s_local, s_maps)
+
+    def _StructuralFidelity(
+        self,
+        L_hdr: np.ndarray,
+        L_ldr: np.ndarray,
+        level: int,
+        weight: list[float],
+        window: np.ndarray,
+    ) -> tuple[float, list[float], list[np.ndarray]]:
+        f = 32
+        s_local = []
+        s_maps = []
+        kernel = np.ones((2, 2)) / 4.0
+
+        for _ in range(level):
+            f = f / 2
+            sl, sm = self._Slocal(L_hdr, L_ldr, window, f)
+
+            s_local.append(sl)
+            s_maps.append(sm)
+
+            # averaging
+            filtered_im1 = convolve(L_hdr, kernel, mode="valid")
+            filtered_im2 = convolve(L_ldr, kernel, mode="valid")
+
+            # downsampling
+            L_hdr = filtered_im1[::2, ::2]
+            L_ldr = filtered_im2[::2, ::2]
+
+        S = np.prod(np.power(s_local, weight))
+        return S, s_local, s_maps
+
+    @staticmethod
+    def _Slocal(
+        img1: np.ndarray,
+        img2: np.ndarray,
+        window: np.ndarray,
+        sf: float,
+        C1: float = 0.01,
+        C2: float = 10.0,
+    ) -> tuple[float, np.ndarray]:
+        window = window / window.sum()
+
+        mu1 = convolve(window, img1, "valid")
+        mu2 = convolve(window, img2, "valid")
+
+        mu1_sq = mu1 * mu1
+        mu2_sq = mu2 * mu2
+        mu1_mu2 = mu1 * mu2
+
+        # E[X^2] - E[X]^2: for TMQIr's rescaled (~1e9-magnitude) grayscale L_ldr this subtracts
+        # two ~1e19 quantities, losing most of float64's precision (see FINDINGS.md); results
+        # for that case are not stable across SciPy versions.
+        sigma1_sq = convolve(img1 * img1, window, "valid") - mu1_sq
+        sigma2_sq = convolve(img2 * img2, window, "valid") - mu2_sq
+
+        sigma1 = np.sqrt(np.maximum(sigma1_sq, 0))
+        sigma2 = np.sqrt(np.maximum(sigma2_sq, 0))
+
+        sigma12 = convolve(img1 * img2, window, "valid") - mu1_mu2
+
+        CSF = 100.0 * 2.6 * (0.0192 + 0.114 * sf) * np.exp(-((0.114 * sf) ** 1.1))
+        u_hdr = 128 / (1.4 * CSF)
+        sig_hdr = u_hdr / 3.0
+
+        sigma1p = norm.cdf(sigma1, loc=u_hdr, scale=sig_hdr)
+
+        u_ldr = u_hdr
+        sig_ldr = u_ldr / 3.0
+
+        sigma2p = norm.cdf(sigma2, loc=u_ldr, scale=sig_ldr)
+
+        s_map = (
+            (2 * sigma1p * sigma2p + C1)
+            / (sigma1p**2 + sigma2p**2 + C1)
+            * ((sigma12 + C2) / (sigma1 * sigma2 + C2))
+        )
+        s = np.mean(s_map)
+        return s, s_map
+
+    def _StatisticalNaturalness(self, L_ldr: np.ndarray, win: int = 11) -> float:
+        phat1 = 4.4
+        phat2 = 10.1
+        muhat = 115.94
+        sigmahat = 27.99
+        u = np.mean(L_ldr)
+
+        # moving window standard deviation using reflected image
+        if self.original:
+            W, H = L_ldr.shape
+            w_extra = (11 - W % 11) % 11
+            h_extra = (11 - H % 11) % 11
+            # zero padding to simulate matlab's behaviour
+            if w_extra > 0 or h_extra > 0:
+                test = np.pad(L_ldr, pad_width=((0, w_extra), (0, h_extra)), mode="constant")
+            else:
+                test = L_ldr
+            # block view with fixed block size, like in the original article
+            view = view_as_blocks(test, block_shape=(11, 11))
+            sig = np.mean(np.std(view, axis=(-1, -2)))
+        else:
+            # deviation: moving window with reflected borders
+            sig = np.mean(generic_filter(L_ldr, np.std, size=win))
+
+        beta_mode = (phat1 - 1.0) / (phat1 + phat2 - 2.0)
+        C_0 = beta.pdf(beta_mode, phat1, phat2)
+        C = beta.pdf(sig / 64.29, phat1, phat2)
+        pc = C / C_0
+        B = norm.pdf(u, muhat, sigmahat)
+        B_0 = norm.pdf(muhat, muhat, sigmahat)
+        pb = B / B_0
+        N = pb * pc
+        return N
+
+
+class TMQIr(TMQI):
+    name = "TMQIrev"
+    original = False
