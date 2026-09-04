@@ -4,8 +4,8 @@ from importlib.metadata import PackageNotFoundError, version
 
 from loguru import logger
 
-from TMQI.image_io import img_read
-from TMQI.metric import TMQI, Metric, TMQIr, TMQIResult
+from tmqi.image_io import img_read
+from tmqi.metric import TMQI, Metric, TMQIr, TMQIResult
 
 try:
     __version__ = version("tmqi-revised")
@@ -33,4 +33,4 @@ __upstream_ref__ = (
 
 __all__ = ["TMQI", "Metric", "TMQIResult", "TMQIr", "img_read"]
 
-logger.disable("TMQI")
+logger.disable("tmqi")

@@ -1,9 +1,10 @@
 from pathlib import Path
 
 import pytest
+from loguru import logger
 
-from TMQI import TMQI, TMQIr
-from TMQI.image_io import img_read
+from tmqi import TMQI, TMQIr
+from tmqi.image_io import img_read
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 RAW_SHAPE = (396, 561)  # (width, height), per the historical .float32 fixtures
@@ -66,3 +67,14 @@ def tmqi_small_result(small_rgb_pair):
 def tmqir_small_result(small_rgb_pair):
     hdr, ldr = small_rgb_pair
     return TMQIr()(hdr, ldr)
+
+
+@pytest.fixture
+def loguru_messages():
+    """Captures tmqi's loguru output (disabled by default for library consumers)."""
+    messages: list[str] = []
+    logger.enable("tmqi")
+    sink_id = logger.add(messages.append, level="WARNING", format="{message}")
+    yield messages
+    logger.remove(sink_id)
+    logger.disable("tmqi")

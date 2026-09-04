@@ -1,7 +1,7 @@
 import pytest
 from click.testing import CliRunner
 
-from TMQI.cli import main
+from tmqi.cli import main
 
 
 @pytest.fixture
@@ -84,9 +84,12 @@ def test_report_maps_writes_five_files_with_prefix(
     assert len(written) == 5
 
 
-def test_raw_input_matches_png_input(runner, data_dir):
+def test_raw_input_matches_png_input_closely(runner, data_dir):
+    # The gray raw/PNG fixtures aren't numerically identical (see
+    # test_image_io.py::test_raw_gray_matches_png_gray_mostly and FINDINGS.md), so this
+    # compares Q with a tolerance rather than requiring exact stdout equality.
     png_result = runner.invoke(
-        main, [str(data_dir / "test.png"), str(data_dir / "test_ldr.png"), "-g"]
+        main, [str(data_dir / "test.png"), str(data_dir / "test_ldr.png"), "-g", "-p", "6"]
     )
     raw_result = runner.invoke(
         main,
@@ -100,10 +103,14 @@ def test_raw_input_matches_png_input(runner, data_dir):
             "-H",
             "561",
             "-g",
+            "-p",
+            "6",
         ],
     )
     assert png_result.exit_code == raw_result.exit_code == 0
-    assert png_result.stdout == raw_result.stdout
+    png_q = float(png_result.stdout.removeprefix("Q: ").strip())
+    raw_q = float(raw_result.stdout.removeprefix("Q: ").strip())
+    assert png_q == pytest.approx(raw_q, abs=1e-3)
 
 
 def test_missing_argument_exits_2_stdout_empty(runner, data_dir):

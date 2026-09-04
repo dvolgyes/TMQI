@@ -39,6 +39,8 @@ def img_read(
         if gray and img.ndim > 2:
             img = skimage.color.rgb2hsv(img)[..., 2]
     else:
+        if shape is None:
+            raise ValueError("shape is required when dtype is given (raw image reads)")
         width, height = shape
         img = np.fromfile(path, dtype=dtype)
         img = img.reshape(height, width) if gray else img.reshape(height, width, -1)

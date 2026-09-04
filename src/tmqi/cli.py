@@ -7,14 +7,14 @@ import click
 import numpy as np
 from loguru import logger
 
-from TMQI.image_io import RAW_DTYPES, img_read, write_map
-from TMQI.metric import TMQI, TMQIr, TMQIResult
+from tmqi.image_io import RAW_DTYPES, img_read, write_map
+from tmqi.metric import TMQI, TMQIr, TMQIResult
 
 _LOG_LEVELS = ("TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL")
 
 
 def _configure_logging(loglevel: str, logfile: Path | None) -> None:
-    logger.enable("TMQI")
+    logger.enable("tmqi")
     logger.remove()
     logger.add(sys.stderr, level=loglevel)
     if logfile is not None:
@@ -150,10 +150,11 @@ def main(
     """Compute the Tone Mapped Image Quality Index for HDR_IMAGE against LDR_IMAGE."""
     _configure_logging(loglevel, logfile)
 
-    if input_type is not None and (width is None or height is None):
-        raise click.UsageError("-W/--width and -H/--height are required with -i/--input_type")
-
-    shape = (width, height) if input_type is not None else None
+    shape: tuple[int, int] | None = None
+    if input_type is not None:
+        if width is None or height is None:
+            raise click.UsageError("-W/--width and -H/--height are required with -i/--input_type")
+        shape = (width, height)
     hdr = img_read(hdr_image, gray=gray, shape=shape, dtype=input_type)
     ldr = img_read(ldr_image, gray=gray, shape=shape, dtype=input_type)
     logger.debug("read {} shape={}", hdr_image, hdr.shape)

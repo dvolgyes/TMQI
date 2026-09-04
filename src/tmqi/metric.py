@@ -5,9 +5,10 @@ Matlab implementation and the notation of the original paper; they are kept as-i
 rather than renamed to snake_case.
 """
 
-from typing import NamedTuple
+from typing import NamedTuple, cast
 
 import numpy as np
+from loguru import logger
 from scipy.ndimage import generic_filter
 from scipy.signal import convolve
 from scipy.signal.windows import gaussian
@@ -16,6 +17,8 @@ from skimage.util import view_as_blocks
 
 
 class TMQIResult(NamedTuple):
+    """The published TMQI descriptors: quality, structural fidelity, naturalness, per-scale."""
+
     Q: float
     S: float
     N: float
@@ -42,6 +45,8 @@ def _validate_image_pair(hdr_image: np.ndarray, ldr_image: np.ndarray) -> None:
 
 
 class Metric:
+    """Base class describing an image-quality metric's descriptors and metadata."""
+
     name: str = "Undefined"
     descriptors: tuple[str, ...] = ()
     lists: tuple[str, ...] = ()
@@ -52,16 +57,18 @@ class Metric:
     RGB: bool = False
 
     def __init__(self, *args, **kwargs) -> None:
-        self.cache: dict = {}
+        self.cache: dict[str, object] = {}
 
     def _RGBtoY(self, RGB: np.ndarray) -> np.ndarray:
         if RGB.ndim != 3 or RGB.shape[2] != 3:
             raise ValueError(f"expected an NxMx3 RGB array, got shape {RGB.shape}")
         weights = np.asarray([0.2126, 0.7152, 0.0722])
-        return np.einsum("...c,c->...", RGB, weights)
+        return cast(np.ndarray, np.einsum("...c,c->...", RGB, weights))
 
 
 class TMQI(Metric):
+    """Yeganeh & Wang's TMQI (original formulation); constructing with args also calls it."""
+
     name = "TMQI"
     descriptors = ("Q", "S", "N")
     lists = ("s_local",)
@@ -80,6 +87,7 @@ class TMQI(Metric):
     def __call__(
         self, hdrImage: np.ndarray, ldrImage: np.ndarray, window: np.ndarray | None = None
     ) -> TMQIResult:
+        """Compute Q, S, N (and their per-scale components) for hdrImage vs ldrImage."""
         _validate_image_pair(hdrImage, ldrImage)
 
         if hdrImage.ndim == 3 and ldrImage.ndim == 3:
@@ -121,7 +129,7 @@ class TMQI(Metric):
 
         # The images should have the same dynamic ranges, e.g. [0,255]
 
-        factor = float(2**32 - 1.0)
+        factor = 2**32 - 1.0
 
         if self.original:
             L_hdr = factor * (L_hdr - L_hdr.min()) / (L_hdr.max() - L_hdr.min())
@@ -134,6 +142,41 @@ class TMQI(Metric):
         Q = a * (S**Alpha) + (1.0 - a) * (N**Beta)
         return TMQIResult(Q, S, N, s_local, s_maps)
 
+    def _warn_negative_s_local(self, level: int, num_levels: int, sl: float) -> None:
+        # See FINDINGS.md. S_local's covariance ratio (sigma_xy + C2) / (sigma_x*sigma_y + C2)
+        # is not bounded below by zero -- a genuinely anti-correlated HDR/LDR patch (same as
+        # SSIM's structure term) can push it negative. S = prod(s_local ** weight) then raises
+        # a negative base to a fractional exponent, which is mathematically undefined (nan).
+        # This is not fixed here, by design: it's an inherent property of the published TMQI
+        # formula, and "fixing" it would make scores incomparable to the original/TMQIr values.
+        if self.original:
+            cause = (
+                "A negative aggregate local covariance at this pyramid level is an unusual "
+                "but legitimate outcome of the formula."
+            )
+        else:
+            cause = (
+                "This branch (TMQIr) rescales both the HDR and LDR images into the same "
+                "~4.3e9 range before computing local covariance (E[XY] - E[X]E[Y] on "
+                "~1e18-magnitude products), which amplifies floating-point cancellation and "
+                "makes a spurious negative outlier far more likely than in the original "
+                "TMQI branch."
+            )
+        logger.warning(
+            "pyramid level {}/{}: local structural fidelity s_local={:.4g} is negative. {} "
+            "Q and/or S will likely come out nan, since S = prod(s_local ** weight) is "
+            "undefined for a negative base. See TMQI's FINDINGS.md. The official follow-up, "
+            "TMQI-II (K. Ma, H. Yeganeh, K. Zeng, Z. Wang, 'High Dynamic Range Image "
+            "Compression by Optimizing Tone Mapped Image Quality Index,' IEEE Trans. Image "
+            "Process., vol. 24, no. 10, pp. 3086-3097, 2015, doi:10.1109/TIP.2015.2436340), "
+            "revises other parts of the structural-fidelity formula but keeps this same "
+            "covariance ratio unchanged.",
+            level,
+            num_levels,
+            sl,
+            cause,
+        )
+
     def _StructuralFidelity(
         self,
         L_hdr: np.ndarray,
@@ -142,14 +185,16 @@ class TMQI(Metric):
         weight: list[float],
         window: np.ndarray,
     ) -> tuple[float, list[float], list[np.ndarray]]:
-        f = 32
+        f = 32.0
         s_local = []
         s_maps = []
         kernel = np.ones((2, 2)) / 4.0
 
-        for _ in range(level):
+        for lvl in range(level):
             f = f / 2
             sl, sm = self._Slocal(L_hdr, L_ldr, window, f)
+            if sl < 0:
+                self._warn_negative_s_local(lvl + 1, level, sl)
 
             s_local.append(sl)
             s_maps.append(sm)
@@ -245,9 +290,11 @@ class TMQI(Metric):
         B_0 = norm.pdf(muhat, muhat, sigmahat)
         pb = B / B_0
         N = pb * pc
-        return N
+        return float(N)
 
 
 class TMQIr(TMQI):
+    """The "revised" TMQI branch: symmetric HDR/LDR rescaling (see FINDINGS.md)."""
+
     name = "TMQIrev"
     original = False

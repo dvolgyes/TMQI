@@ -6,8 +6,8 @@ import math
 
 import pytest
 
-from TMQI import TMQI, TMQIr
-from TMQI.image_io import img_read
+from tmqi import TMQI, TMQIr
+from tmqi.image_io import img_read
 
 pytestmark = pytest.mark.slow
 
@@ -58,8 +58,8 @@ def test_tmqir_rgb_off_image(off_pair):
 
 
 @pytest.mark.filterwarnings("ignore:invalid value encountered in power:RuntimeWarning")
-def test_tmqir_gray_test_image_is_nan(gray_png_pair):
-    # See FINDINGS.md: TMQIr's variance formula suffers catastrophic cancellation on the
+def test_tmqir_gray_test_image_is_nan(gray_png_pair, loguru_messages):
+    # See FINDINGS.md: TMQIr's covariance formula suffers catastrophic cancellation on the
     # rescaled grayscale input, so the exact negative s_local[0] is not stable across SciPy
     # versions. Only the (stable) nan-ness of Q/S and N are pinned here. The RuntimeWarning
     # is the expected, documented consequence of raising a negative s_local to a fractional
@@ -70,3 +70,14 @@ def test_tmqir_gray_test_image_is_nan(gray_png_pair):
     assert math.isnan(result.S)
     assert round(result.N, 4) == 0.0
     assert len(result.s_local) == 5
+
+    assert len(loguru_messages) == 1
+    assert "negative" in loguru_messages[0]
+    assert "TIP.2015.2436340" in loguru_messages[0]
+
+
+def test_no_warning_for_well_behaved_images(rgb_png_pair, loguru_messages):
+    hdr, ldr = rgb_png_pair
+    TMQI()(hdr, ldr)
+    TMQIr()(hdr, ldr)
+    assert loguru_messages == []

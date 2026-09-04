@@ -1,8 +1,10 @@
+import math
+
 import numpy as np
 import pytest
 
-from TMQI import TMQI, TMQIr
-from TMQI.metric import TMQIResult
+from tmqi import TMQI, TMQIr
+from tmqi.metric import TMQIResult
 
 
 def test_result_is_named_tuple_and_unpacks(tmqi_small_result):
@@ -115,3 +117,21 @@ def test_non_2d_window_raises(small_gray_pair):
     window = np.ones((5, 5, 1))
     with pytest.raises(ValueError, match="2-D"):
         TMQI()(hdr, ldr, window=window)
+
+
+@pytest.mark.filterwarnings("ignore:invalid value encountered in power:RuntimeWarning")
+def test_negative_s_local_warns_for_original_branch(loguru_messages):
+    # See FINDINGS.md: a locally inverted-contrast patch gives a genuinely negative
+    # covariance ratio even in TMQI's non-revised branch (no huge rescale of L_ldr involved),
+    # confirming the negative-s_local issue is inherent to the formula, not just a TMQIr
+    # numerical-precision artifact.
+    rng = np.random.default_rng(0)
+    hdr = rng.uniform(0, 255, (200, 200))
+    ldr = 255 - hdr + rng.normal(0, 1, (200, 200))
+
+    result = TMQI()(hdr, ldr)
+
+    assert math.isnan(result.S)
+    assert len(loguru_messages) >= 1
+    assert "legitimate outcome of the formula" in loguru_messages[0]
+    assert "TIP.2015.2436340" in loguru_messages[0]

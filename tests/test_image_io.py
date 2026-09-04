@@ -3,7 +3,7 @@ import re
 import numpy as np
 import pytest
 
-from TMQI.image_io import RAW_DTYPES, img_read, write_map
+from tmqi.image_io import RAW_DTYPES, img_read, write_map
 
 
 def test_png_rgb_shape_and_dtype(rgb_png_pair):
@@ -38,14 +38,21 @@ def test_raw_rgb_matches_png_rgb_exactly(rgb_png_pair, rgb_raw_pair):
     assert np.array_equal(png_ldr, raw_ldr)
 
 
-def test_raw_gray_matches_png_gray_closely(gray_png_pair, gray_raw_pair):
-    # The gray raw dump is a float32 quantization of skimage's rgb2hsv V-channel, not a
-    # bit-exact copy, so this is a loose tolerance rather than exact equality (measured
-    # max abs diff ~3e-8, i.e. float32 rounding noise, not a differing computation).
+def test_raw_gray_matches_png_gray_mostly(gray_png_pair, gray_raw_pair):
+    # Unlike the RGB raw dump, the historical gray .float32 fixtures are NOT a bit-exact
+    # capture of skimage's rgb2hsv V-channel: measured directly, 163/222156 pixels
+    # (~0.07%) differ by up to ~0.0117, while the other 99.9%+ match closely. This is a
+    # pre-existing property of the 2018-era fixture files themselves (confirmed: skimage's
+    # V channel is exactly max(R,G,B)/255, verified to float64 epsilon against a manual
+    # computation, so this isn't a skimage/imageio version artifact) -- not a bug in this
+    # code. See FINDINGS.md. The bound below catches a real regression (e.g. a reshape or
+    # dtype bug) without being sensitive to this known, small, pre-existing discrepancy.
     png_hdr, png_ldr = gray_png_pair
     raw_hdr, raw_ldr = gray_raw_pair
-    np.testing.assert_allclose(png_hdr, raw_hdr, atol=1e-6)
-    np.testing.assert_allclose(png_ldr, raw_ldr, atol=1e-6)
+    for png_img, raw_img in ((png_hdr, raw_hdr), (png_ldr, raw_ldr)):
+        diff = np.abs(png_img - raw_img)
+        assert np.mean(diff > 1e-4) < 0.005, "more than 0.5% of pixels diverge unexpectedly"
+        assert diff.max() < 0.02, "an outlier pixel exceeds the known historical divergence"
 
 
 def test_missing_file_raises_with_path(tmp_path):
@@ -58,6 +65,11 @@ def test_missing_raw_file_raises(tmp_path):
     missing = tmp_path / "does_not_exist.float32"
     with pytest.raises(FileNotFoundError):
         img_read(missing, shape=(10, 10), dtype="float32")
+
+
+def test_raw_dtype_without_shape_raises(data_dir):
+    with pytest.raises(ValueError, match="shape is required"):
+        img_read(data_dir / "test.float32", dtype="float32")
 
 
 @pytest.mark.parametrize("dtype", ["float32", "float64", "uint8"])
