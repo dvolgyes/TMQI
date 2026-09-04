@@ -1,0 +1,3 @@
+[default.extend-words]
+# False positive: typos v1.48.0 "corrects" the substring "PN" (as in "PNGs") to "ON".
+PN = "PN"
