@@ -36,7 +36,10 @@ jobs:
         with:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --locked --group dev
+      # --managed-python: always use uv's own (64-bit on Windows) Python, never an
+      # ambient system one -- see appveyor.yml and FINDINGS.md for why this matters on
+      # Windows specifically (scipy/scikit-image ship no win32 wheels).
+      - run: uv sync --locked --group dev --managed-python
       - run: uv run pytest -n auto --cov --cov-report=xml
       - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5.5.5
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
@@ -54,5 +57,5 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.12"
-      - run: uv sync --locked --group dev
+      - run: uv sync --locked --group dev --managed-python
       - run: uv run pre-commit run --all-files --show-diff-on-failure

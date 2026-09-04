@@ -8,7 +8,8 @@ Codecov:
 [![codecov](https://codecov.io/gh/dvolgyes/TMQI/branch/master/graph/badge.svg)](https://codecov.io/gh/dvolgyes/TMQI)
 Python: [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://github.com/dvolgyes/TMQI)
 
-This is a Python 3 reimplementation of the Tone Mapped Image Quality Index. Requires Python 3.10+.
+This is a Python 3 reimplementation of the Tone Mapped Image Quality Index. Requires Python 3.10+. 64-bit only — 32-bit
+systems (including 32-bit Windows) are not supported.
 
 This implementation and the Matlab original have significant differences and they yield different results!
 
@@ -60,6 +61,9 @@ appropriate function calls (TMQI vs. TMQIr) or using the --revised option in CLI
   `FINDINGS.md` for the full, measured root-cause writeups; if you need a structural-fidelity term that's designed to
   avoid the `nan` case entirely (a formula change, not just a numerical one), see TMQI-II above — not implemented here,
   to keep scores comparable to the original TMQI/TMQIr.
+- **Windows: 64-bit only, by deliberate choice.** `numpy`/`scipy`/`scikit-image` are pinned to versions that no longer
+  publish 32-bit (`win32`) Windows wheels, and CI is configured to always use a uv-managed Python (`--managed-python`),
+  which is 64-bit-only on Windows anyway. See `FINDINGS.md` for how this was diagnosed.
 
 ## Install
 
