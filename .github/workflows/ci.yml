@@ -1,0 +1,61 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [master, main, modernization]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: py${{ matrix.python-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - os: windows-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      # --managed-python: always use uv's own (64-bit on Windows) Python, never an
+      # ambient system one -- see appveyor.yml and FINDINGS.md for why this matters on
+      # Windows specifically (scipy/scikit-image ship no win32 wheels).
+      - run: uv sync --locked --group dev --managed-python
+      - run: uv run pytest -n auto --cov --cov-report=xml
+      - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5.5.5
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        with:
+          files: ./coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv sync --locked --group dev --managed-python
+      - run: uv run pre-commit run --all-files --show-diff-on-failure
