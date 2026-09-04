@@ -1,16 +1,10 @@
 Tone Mapped Image Quality Index - revised
 =========================================
 
-Travis CI: [![Build Status](https://travis-ci.org/dvolgyes/TMQI.svg?branch=master)](https://travis-ci.org/dvolgyes/TMQI)
-Semaphore: [![Build Status](https://semaphoreci.com/api/v1/dvolgyes/tmqi/branches/master/badge.svg)](https://semaphoreci.com/dvolgyes/tmqi)
-CircleCI: [![CircleCI](https://circleci.com/gh/dvolgyes/TMQI.svg?style=svg)](https://circleci.com/gh/dvolgyes/TMQI)
-AppVeyor: [![Build Status](https://img.shields.io/appveyor/ci/dvolgyes/TMQI.svg)](https://ci.appveyor.com/project/dvolgyes/tmqi)
-
-Coveralls: [![Coverage Status](https://img.shields.io/coveralls/github/dvolgyes/TMQI/master.svg)](https://coveralls.io/github/dvolgyes/TMQI?branch=master)
+CI: [![CI](https://github.com/dvolgyes/TMQI/actions/workflows/ci.yml/badge.svg)](https://github.com/dvolgyes/TMQI/actions/workflows/ci.yml)
 Codecov: [![codecov](https://codecov.io/gh/dvolgyes/TMQI/branch/master/graph/badge.svg)](https://codecov.io/gh/dvolgyes/TMQI)
-Code climate: [![Maintainability](https://api.codeclimate.com/v1/badges/e346fb54948ce29d1ab1/maintainability)](https://codeclimate.com/github/dvolgyes/TMQI/maintainability)
 
-This is a Python3 reimplementation of the Tone Mapped Image Quality Index.
+This is a Python 3 reimplementation of the Tone Mapped Image Quality Index. Requires Python 3.10+.
 
 This implementation and the Matlab original have significant differences
 and they yield different results!
@@ -42,6 +36,12 @@ Install
 -------
 
 ```
+uv add git+https://github.com/dvolgyes/TMQI
+```
+
+or with pip:
+
+```
 pip install git+https://github.com/dvolgyes/TMQI
 ```
 
@@ -52,8 +52,49 @@ from TMQI import TMQI, TMQIr
 
 or call it as a command line program:
 ```
-TMQI.py -h
+tmqi -h
 ```
+(equivalently, `python -m TMQI -h`)
+
+Development
+-----------
+
+The project uses [uv](https://docs.astral.sh/uv/) for environment management.
+
+```
+uv sync --group dev
+uv run pytest -n 8 --cov
+uv run pre-commit run --all
+```
+
+Changes since the 0.x series
+-----------------------------
+
+This release modernizes the packaging (`pyproject.toml` + uv, Python 3.10+, no more separate
+Windows/Linux requirements files) and the CLI (now built on `click` instead of `optparse`). A few
+behaviors changed along the way:
+
+- The console command is now `tmqi` (or `python -m TMQI`), not `TMQI.py`.
+- Images must be local files; URL inputs (and the `--keep` flag that went with them) are no longer
+  supported.
+- Missing or invalid arguments now exit with status 2 and the error on stderr (previously exit 0
+  with the message on stdout).
+- `-i/--input_type` without `-W/--width` and `-H/--height` now raises a clear usage error instead of
+  crashing.
+- `--logfile` and `--loglevel` were added for status/diagnostic output (via loguru, on stderr); the
+  single-line report is still the only thing printed to stdout.
+- `-M`'s non-raw map output (e.g. `-t png`) now scales the fixed `[0, 1]` structural-fidelity range
+  to `[0, 255]`, rather than the previous per-image min/max byte-scaling — this matches how the
+  original paper defines and visualizes the structural-fidelity map, at the cost of no longer being
+  byte-identical to historical output. Raw `-t float32`/`float64` dumps are unaffected.
+- A padding bug in the naturalness computation was fixed: when an image's width or height was an
+  exact multiple of 11, a full spurious block of zero padding was added instead of none. This
+  changes the `N` (and therefore `Q`) score for such images; `S` is unaffected. See `FINDINGS.md`.
+- The `PyContracts`-based runtime validation was replaced with plain `ValueError`/`TypeError` guard
+  clauses (the library is unmaintained and does not support recent Python versions); the checks
+  performed are the same.
+
+See `FINDINGS.md` for other things discovered along the way.
 
 Documentation
 -------------
