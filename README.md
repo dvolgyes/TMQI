@@ -29,6 +29,26 @@ These leads to different TMQI scores, so the values from the original articles a
 comparable. Be careful before you choose one of them. You can call both the original code and my modified one, using
 appropriate function calls (TMQI vs. TMQIr) or using the --revised option in CLI.
 
+## Known limitations
+
+- **`Q`/`S` can come out `nan`.** `S_local`'s covariance ratio is not bounded below by zero by formula design (the same
+  is true of SSIM's own structure term): a strongly anti-correlated local patch between the HDR and LDR image
+  legitimately pushes it negative, and the paper's multi-scale combination (`S = prod(s_local ** weight)`) is undefined
+  for a negative base. This is not a bug, and it is not "fixed" here — doing so would make scores incomparable to
+  published TMQI/TMQIr values. The official follow-up paper,
+  [TMQI-II](https://eceweb.uwaterloo.ca/~z70wang/publications/TIP_TMO.pdf) (K. Ma, H. Yeganeh, K. Zeng, Z. Wang, "High
+  Dynamic Range Image Compression by Optimizing Tone Mapped Image Quality Index," *IEEE Trans. Image Process.*, vol. 24,
+  no. 10, pp. 3086-3097, 2015, doi:[10.1109/TIP.2015.2436340](https://doi.org/10.1109/TIP.2015.2436340)), revises other
+  parts of the structural-fidelity formula but keeps this exact same covariance ratio — so it doesn't avoid this either.
+  A warning is logged (at the default `--loglevel`) whenever it happens, explaining why.
+- **`TMQIr` (the `--revised` branch) is numerically fragile.** It rescales both the HDR and LDR images into the same
+  ~4.3e9 range before computing local covariance, pushing the computation to the edge of float64 precision and making
+  the `nan` case above dramatically more likely. Near that edge, the exact numeric output is not reproducible across
+  SciPy versions — only the qualitative behavior (e.g. whether the result is `nan`) is stable.
+- Both are properties of the published algorithm(s), not implementation bugs. See `FINDINGS.md` for the full, measured
+  root-cause writeups; if you need a more numerically robust structural-fidelity term, see TMQI-II above (not
+  implemented here, to keep scores comparable to the original TMQI).
+
 ## Install
 
 ```
@@ -88,6 +108,7 @@ files) and the CLI (now built on `click` instead of `optparse`). A few behaviors
   images; `S` is unaffected. See `FINDINGS.md`.
 - The `PyContracts`-based runtime validation was replaced with plain `ValueError`/`TypeError` guard clauses (the library
   is unmaintained and does not support recent Python versions); the checks performed are the same.
+- A warning is now logged when a run produces `Q`/`S` as `nan`, explaining why. See "Known limitations" above.
 
 See `FINDINGS.md` for other things discovered along the way.
 
