@@ -135,3 +135,24 @@ def test_negative_s_local_warns_for_original_branch(loguru_messages):
     assert len(loguru_messages) >= 1
     assert "legitimate outcome of the formula" in loguru_messages[0]
     assert "TIP.2015.2436340" in loguru_messages[0]
+
+
+@pytest.mark.filterwarnings("ignore:invalid value encountered in power:RuntimeWarning")
+def test_negative_s_local_warns_for_tmqir_branch(loguru_messages):
+    # Same inverted-contrast construction as above, but through TMQIr. Unlike the real
+    # test.png fixture (see FINDINGS.md and test_regression.py), this deliberately
+    # structural inversion gives s_local values around -0.9999 -- a massive, robust
+    # signal that cross-platform floating-point noise (observed: identical code gives a
+    # nan on Linux but a normal float on macOS CI for the borderline real-photo case)
+    # cannot flip, so this is the reliable cross-platform regression guard for TMQIr's
+    # negative-s_local warning path.
+    rng = np.random.default_rng(0)
+    hdr = rng.uniform(0, 255, (200, 200))
+    ldr = 255 - hdr + rng.normal(0, 1, (200, 200))
+
+    result = TMQIr()(hdr, ldr)
+
+    assert math.isnan(result.S)
+    assert len(loguru_messages) >= 1
+    assert "TMQIr" in loguru_messages[0]
+    assert "TIP.2015.2436340" in loguru_messages[0]

@@ -75,3 +75,28 @@ environment (scipy 1.18.1/skimage 0.26.0) it flips the 4th decimal (`Q` 0.2195 f
 "convolve heuristic changed between SciPy versions" risk flagged during planning, now observed concretely.
 `tests/test_image_io.py` and `tests/test_cli.py` compare the raw/gray pair with a tolerance rather than exact equality;
 the RGB pair, which *is* bit-exact, keeps an exact-match test.
+
+2026-09-04: the gray `test.png` regression cases are also platform-dependent, not just SciPy-version-dependent (caught
+by GitHub Actions CI on macOS, `macos-latest`/Apple Silicon, `numpy==2.5.2`/`scipy==1.18.1`, same versions as the Linux
+dev environment): `test_tmqi_gray_test_image` got `Q=0.21939`/`S=0.01423` there vs `Q=0.21950`/`S=0.01423` on Linux — a
+4th-decimal flip on `Q` from identical code and identical package versions — and `test_tmqir_gray_test_image` (formerly
+`_is_nan`) got a normal float (`Q=0.7602`) on macOS where Linux reliably produces `nan`. Root cause: NumPy and SciPy
+delegate summation-order-sensitive operations (`scipy.signal.convolve`, `np.mean`, `np.std`, all pervasive in
+`_Slocal`/`_StructuralFidelity`) to BLAS/FFT backends, and IEEE 754 addition is not associative — different backends sum
+the same numbers in a different order and get a different last bit. Confirmed directly: this repo's Linux wheels link
+OpenBLAS built for x86 (`OpenBLAS 0.3.34 DYNAMIC_ARCH Haswell`, via `numpy.show_config()`); official NumPy wheels for
+macOS (Apple Silicon, which is what `macos-latest` runners are) link Apple's Accelerate/vecLib instead — a different
+vendor's BLAS tuned for a different instruction set (ARM NEON, not x86 AVX). This last-bit noise is normally 16 decimal
+digits down and never visible in any reported value; it's only visible here because of the same
+catastrophic-cancellation amplification documented above (`E[X²] − E[X]²`/`E[XY] − E[X]E[Y]` subtracting two huge
+quantities), plus, for the non-revised `TMQI` case specifically, this particular image's unusually small `S` (~0.014)
+making `Q = a·Sᵅ + …` disproportionately sensitive to small absolute changes in `S`.
+
+Fixed by loosening `test_tmqi_gray_test_image`'s `Q`/`S` assertions to `pytest.approx(..., abs=0.005)` (verified this
+comfortably covers the observed macOS values) and by no longer pinning a specific `nan`/non-`nan` outcome in
+`test_tmqir_gray_test_image` — it now checks the warning mechanism only when `nan` actually occurs, and asserts basic
+validity otherwise. The reliable, platform-independent regression guard for the negative-`s_local`-warning mechanism
+itself is a new pair of synthetic tests, `test_metric.py::test_negative_s_local_warns_for_{original,tmqir}_branch`: a
+deliberately, structurally inverted-contrast image pair gives `s_local` values around **-0.9999** (confirmed on Linux;
+reasoned to be robust on any platform since it's not a marginal/knife-edge case like the real photo — cross-platform
+BLAS noise is many orders of magnitude too small to flip a value that far from zero).
