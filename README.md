@@ -2,6 +2,8 @@
 
 CI:
 [![CI](https://github.com/dvolgyes/TMQI/actions/workflows/ci.yml/badge.svg)](https://github.com/dvolgyes/TMQI/actions/workflows/ci.yml)
+Windows build:
+[![Build status](https://img.shields.io/appveyor/build/dvolgyes/tmqi)](https://ci.appveyor.com/project/dvolgyes/tmqi)
 Codecov:
 [![codecov](https://codecov.io/gh/dvolgyes/TMQI/branch/master/graph/badge.svg)](https://codecov.io/gh/dvolgyes/TMQI)
 Python: [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://github.com/dvolgyes/TMQI)
@@ -122,6 +124,9 @@ files) and the CLI (now built on `click` instead of `optparse`). A few behaviors
 - The local structural-fidelity computation is now numerically more stable, fixing most spurious `nan`s that were
   actually floating-point artifacts rather than genuine anti-correlation. Numeric results for previously-affected images
   will differ slightly from earlier versions; see "Known limitations" above and `FINDINGS.md`.
+- Windows CI (AppVeyor) is uv-based now too, mirroring GitHub Actions' `windows-latest` job: install uv, `uv sync`,
+  `uv run pytest`. No project-specific requirements files, no MSBuild step (this repo has no Visual Studio project — the
+  build phase is explicitly disabled).
 
 See `FINDINGS.md` for other things discovered along the way.
 

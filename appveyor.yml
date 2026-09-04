@@ -1,0 +1,18 @@
+---
+image:
+  - Visual Studio 2022
+
+platform:
+  - x64
+
+install:
+  - ps: irm https://astral.sh/uv/install.ps1 | iex
+  - set PATH=%USERPROFILE%\.local\bin;%PATH%
+  - uv sync --locked --group dev
+
+# uv manages its own Python install per requires-python (pyproject.toml); no MSBuild/VS
+# project exists in this repo, so the build phase must be disabled explicitly.
+build: off
+
+test_script:
+  - uv run pytest -n 8 --cov -v
