@@ -4,6 +4,7 @@ CI:
 [![CI](https://github.com/dvolgyes/TMQI/actions/workflows/ci.yml/badge.svg)](https://github.com/dvolgyes/TMQI/actions/workflows/ci.yml)
 Codecov:
 [![codecov](https://codecov.io/gh/dvolgyes/TMQI/branch/master/graph/badge.svg)](https://codecov.io/gh/dvolgyes/TMQI)
+Python: [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://github.com/dvolgyes/TMQI)
 
 This is a Python 3 reimplementation of the Tone Mapped Image Quality Index. Requires Python 3.10+.
 
