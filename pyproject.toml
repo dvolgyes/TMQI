@@ -61,7 +61,7 @@ markers = ["slow: full-resolution metric runs (several seconds)"]
 filterwarnings = ["error"]
 
 [tool.coverage.run]
-source = ["src/TMQI"]
+source_pkgs = ["TMQI"]
 branch = true
 parallel = true
 
@@ -91,4 +91,4 @@ ignore = ["N999"]
 [tool.ruff.lint.per-file-ignores]
 "src/TMQI/metric.py" = ["N801", "N802", "N803", "N806", "ARG002"]
 "src/TMQI/cli.py" = ["N803", "N806"]
-"tests/**" = ["PLR2004"]
+"tests/**" = ["PLR2004", "N806", "SIM300"]
